@@ -1,5 +1,5 @@
 # ==========================================
-# 1. AI Models & Large Media (필수 차단)
+# 1. AI Models, Datasets & Archives (대용량 바이너리 차단)
 # ==========================================
 *.engine
 *.onnx
@@ -11,7 +11,13 @@
 *.avi
 *.mkv
 runs/
+dataset/
+dataset_*/
 datasets/
+*.zip
+*.tar
+*.tar.gz
+*.7z
 
 # ==========================================
 # 2. Python & Jetson OS
@@ -22,20 +28,25 @@ __pycache__/
 .venv/
 venv/
 *.log
-.DS_Store
-*.swp
+.ipynb_checkpoints/
+.pytest_cache/
+.coverage
 
 # ==========================================
-# 3. Qt & Desktop UI
+# 3. Qt & Desktop UI (C++)
 # ==========================================
 build/
+build-*/
 dist/
 *.user
 *.user.*
 .qmake.stash
+Makefile.Debug
+Makefile.Release
+object_script.*
 
 # ==========================================
-# 4. STM32 / Embedded IDE (CubeIDE, Keil)
+# 4. STM32 / MCU Firmware & Toolchain
 # ==========================================
 Debug/
 Release/
@@ -46,6 +57,8 @@ Release/
 *.hex
 *.map
 *.axf
+*.dmp
+*dump*.txt
 .mxproject
 .metadata/
 
@@ -53,17 +66,34 @@ Release/
 # 5. Android Studio
 # ==========================================
 .gradle/
-build/
 local.properties
 .idea/
 *.apk
 *.aab
+.cxx/
+captures/
+*.iml
 
 # ==========================================
-# 6. Database & Local Storage (SQLite)
+# 6. Database & Environment Secrets
 # ==========================================
 *.db
 *.sqlite
 *.sqlite3
 *.db-wal
 *.db-shm
+.env
+.env.*
+!.env.example
+
+# ==========================================
+# 7. IDE & Operating System Artifacts
+# ==========================================
+.vscode/
+.DS_Store
+*.swp
+*.swo
+*~
+Thumbs.db
+desktop.ini
+ehthumbs.db
