@@ -1,4 +1,4 @@
-﻿/**
+/**
  * QPainter 기반 실시간 영상 비율 맞춤 BBox 렌더링 및 세션 뷰 제어 구현부.
  */
 #include "recycle_page.h"
@@ -106,8 +106,9 @@ void RecyclePage::updateFrame(const QPixmap& pixmap)
     ui->lblVideo->setPixmap(frame);
 }
 
-void RecyclePage::updateDetectionState(const QString& className, double confidence, int debounceCount, const QRect& box)
+void RecyclePage::updateDetectionState(const QString& className, double confidence, int debounceCount, const QRect& box, bool isPassed, const QString& inspectNote)
 {
+    Q_UNUSED(confidence);
     Q_UNUSED(debounceCount);
 
     if (className.isEmpty() || box.isNull()) {
@@ -120,8 +121,16 @@ void RecyclePage::updateDetectionState(const QString& className, double confiden
     const QString displayCategoryName = Config::getCategoryNameKo(cat);
 
     m_detectionBox = box;
-    m_boxColor = UITheme::getCategoryColor(cat);
-    m_boxLabel = displayCategoryName;
+    if (!isPassed) {
+        // 2단계 세부 품질 검사 불합격 (라벨 미제거, 오염 등): 경고 붉은색 테두리 및 상세 사유 라벨 표시
+        m_boxColor = UITheme::Recycle::COLOR_INSPECTION_FAIL;
+        m_boxLabel = inspectNote.isEmpty()
+            ? QString(UITheme::Recycle::Text::BADGE_FAIL_FMT).arg(displayCategoryName)
+            : QString(UITheme::Recycle::Text::BADGE_INSPECT_FMT).arg(displayCategoryName, inspectNote);
+    } else {
+        m_boxColor = UITheme::getCategoryColor(cat);
+        m_boxLabel = displayCategoryName;
+    }
 }
 
 void RecyclePage::updateSessionSummary(const SessionSummary& summary)

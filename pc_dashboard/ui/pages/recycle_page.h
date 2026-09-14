@@ -1,4 +1,4 @@
-﻿/**
+/**
  * 실시간 카메라 스트림 렌더링, BBox 오버레이 및 배출 세션 대시보드 UI 헤더.
  */
 #pragma once
@@ -33,8 +33,8 @@ public:
 
     // 수신 영상 프레임 해상도 맞춤 스케일링 및 BBox/품목 배지 오버레이 렌더링
     void updateFrame(const QPixmap& pixmap);
-    // 검출 객체 메타데이터(라벨/신뢰도/좌표) 기반 오버레이 드로잉 속성 갱신
-    void updateDetectionState(const QString& className, double confidence, int debounceCount, const QRect& box = QRect());
+    // 검출 객체 메타데이터(라벨/신뢰도/좌표/품질검사) 기반 오버레이 드로잉 속성 갱신
+    void updateDetectionState(const QString& className, double confidence, int debounceCount, const QRect& box = QRect(), bool isPassed = true, const QString& inspectNote = QString());
     // 품목별 누적 투입 수량, 탄소 절감량, 합산 포인트 및 에코 트리 성장 단계 동기화
     void updateSessionSummary(const SessionSummary& summary);
     // 상태 머신 전이별 상단 안내 배너 문구 및 컬러 테마 적용

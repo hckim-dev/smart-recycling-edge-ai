@@ -217,6 +217,15 @@ inline constexpr char KEY_CLASS_ID[] = "class_id";
 inline constexpr char KEY_CLASS_NAME[] = "class_name";
 inline constexpr char KEY_CONFIDENCE[] = "confidence";
 inline constexpr char KEY_BOX[] = "box";
+
+inline constexpr char KEY_INSPECTION[] = "inspection";
+inline constexpr char KEY_PASSED[] = "passed";
+inline constexpr char KEY_REASONS[] = "reasons";
+inline constexpr char KEY_DETAILS[] = "details";
+
+// 2단계 세부 품질 검사 사유 코드 (Edge AI Jetson 추론 결과와 규격 일치)
+inline constexpr char REASON_LABEL_ATTACHED[] = "LABEL_ATTACHED";
+inline constexpr char REASON_CONTAMINATED[] = "CONTAMINATED";
 }
 
 // 물리 수거함 구역별 센서 적재율(%) 데이터 모델
@@ -263,6 +272,26 @@ struct HardwareDoorStatus {
     }
 };
 
+// 2단계 세부 품질 검사 (라벨 부착, 오염 등) 결과 모델
+struct InspectionResult {
+    bool hasInspection { false };
+    bool passed { true };
+    QStringList reasons { };
+
+    static InspectionResult fromJson(const QJsonObject& obj)
+    {
+        using namespace Config::JetsonProtocol;
+        InspectionResult res;
+        res.hasInspection = true;
+        res.passed = obj.value(QLatin1String(KEY_PASSED)).toBool(true);
+        const QJsonArray rArr = obj.value(QLatin1String(KEY_REASONS)).toArray();
+        for (const QJsonValue& v : rArr) {
+            res.reasons.append(v.toString());
+        }
+        return res;
+    }
+};
+
 // 비전 엔진 검출 BBox 좌표 및 도메인 분류 정보 모델
 struct Detection {
     int classId { -1 };
@@ -270,6 +299,7 @@ struct Detection {
     double confidence { 0.0 };
     QRect box { };
     RecycleCategory category { RecycleCategory::UNKNOWN };
+    InspectionResult inspection { };
 
     static Detection fromJson(const QJsonObject& obj)
     {
@@ -291,6 +321,10 @@ struct Detection {
         if (bArr.size() >= 4) {
             d.box = QRect(QPoint(bArr[0].toInt(), bArr[1].toInt()),
                 QPoint(bArr[2].toInt(), bArr[3].toInt()));
+        }
+
+        if (obj.contains(QLatin1String(KEY_INSPECTION)) && obj.value(QLatin1String(KEY_INSPECTION)).isObject()) {
+            d.inspection = InspectionResult::fromJson(obj.value(QLatin1String(KEY_INSPECTION)).toObject());
         }
         return d;
     }

@@ -34,7 +34,7 @@ public:
 signals:
     void sigSessionUpdated(const SessionSummary& summary);
     void sigGuideBannerRequested(int bannerType, const QString& customText);
-    void sigDetectionBoxUpdated(const QString& className, double confidence, int debounceCount, const QRect& box);
+    void sigDetectionBoxUpdated(const QString& className, double confidence, int debounceCount, const QRect& box, bool isPassed = true, const QString& inspectNote = QString());
     void sigItemCounted(RecycleCategory category, const SessionSummary& summary);
 
 private:

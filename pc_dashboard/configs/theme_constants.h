@@ -53,6 +53,7 @@ namespace Recycle {
     inline constexpr int BADGE_PAD_X = 14;
     inline constexpr int BADGE_PAD_Y = 8;
     inline const QString DEFAULT_BOX_COLOR = "#10B981";
+    inline const QColor COLOR_INSPECTION_FAIL { "#EF4444" };
 
     constexpr char GREETING_MEMBER[] = "font-size: 30px; font-weight: 900; color: #10B981; background: transparent;";
     constexpr char GREETING_GUEST[] = "font-size: 30px; font-weight: 900; color: #38BDF8; background: transparent;";
@@ -86,7 +87,7 @@ namespace Recycle {
         case BannerType::CONFIRMED:
             return { "#10B981", "#10B981", "rgba(16, 185, 129, 0.15)" };
         case BannerType::WARNING:
-            return { "#F1F5F9", "#94A3B8", "rgba(148, 163, 184, 0.2)" };
+            return { "#FCA5A5", "#EF4444", "rgba(239, 68, 68, 0.2)" };
         case BannerType::DOOR_OPEN:
             return { "#34D399", "#059669", "rgba(5, 150, 105, 0.2)" };
         }
@@ -107,6 +108,16 @@ namespace Recycle {
         constexpr char GUIDE_CONFIRMED_FMT[] = "✅ %1 확인 완료! 투입구가 자동으로 열립니다";
         constexpr char GUIDE_DOOR_OPEN_FMT[] = "🚪 %1 투입구 개방 중 | 물품을 투입해 주세요";
         constexpr char GUIDE_GENERAL_WARN[] = "⚠️ 미인식 품목 감지";
+        constexpr char GUIDE_LABEL_WARN[] = "⚠️ 비닐 라벨을 떼어낸 후 다시 올려주세요";
+        constexpr char GUIDE_CONTAM_WARN[] = "⚠️ 내부 이물질을 세척한 후 다시 올려주세요";
+        constexpr char GUIDE_LABEL_CONTAM_WARN[] = "⚠️ 라벨을 제거하고 내부를 세척해 주세요";
+        constexpr char GUIDE_INSPECT_FAIL[] = "⚠️ 품질 검사 미통과: 라벨이나 이물질을 확인해 주세요";
+        constexpr char NOTE_LABEL_ATTACHED[] = "라벨 미제거";
+        constexpr char NOTE_CONTAMINATED[] = "오염 감지";
+        constexpr char NOTE_LABEL_AND_CONTAM[] = "라벨/오염";
+        constexpr char NOTE_GENERAL_FAIL[] = "품질 불합격";
+        constexpr char BADGE_INSPECT_FMT[] = "%1 [%2]";
+        constexpr char BADGE_FAIL_FMT[] = "%1 [불합격]";
         constexpr char POINTS_MEMBER_FMT[] = "+ %1 P";
         constexpr char POINTS_GUEST_FMT[] = "%1 P (미적립)";
         constexpr char CARBON_SAVED_FMT[] = "🌱 절감 탄소량: %1g CO2";

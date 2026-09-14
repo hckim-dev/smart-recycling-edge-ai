@@ -115,16 +115,46 @@ void RecycleSessionController::processFrameMetadata(const FrameMetadata& meta)
         return;
     }
 
-    // 5. 검출 품목 변경 감지: 이전 디바운스 카운트 초기화
+    // 5. 2단계 세부 품질 검사 (라벨 부착, 오염 등) 불합격 여부 판정
+    if (top.inspection.hasInspection && !top.inspection.passed) {
+        m_consecutiveDetections = 0;
+        m_lastCategory = RecycleCategory::UNKNOWN;
+
+        const bool hasLabel = top.inspection.reasons.contains(QLatin1String(Config::JetsonProtocol::REASON_LABEL_ATTACHED));
+        const bool hasContam = top.inspection.reasons.contains(QLatin1String(Config::JetsonProtocol::REASON_CONTAMINATED));
+
+        QString warnBanner;
+        QString inspectNote;
+
+        if (hasLabel && hasContam) {
+            warnBanner = UITheme::Recycle::Text::GUIDE_LABEL_CONTAM_WARN;
+            inspectNote = UITheme::Recycle::Text::NOTE_LABEL_AND_CONTAM;
+        } else if (hasLabel) {
+            warnBanner = UITheme::Recycle::Text::GUIDE_LABEL_WARN;
+            inspectNote = UITheme::Recycle::Text::NOTE_LABEL_ATTACHED;
+        } else if (hasContam) {
+            warnBanner = UITheme::Recycle::Text::GUIDE_CONTAM_WARN;
+            inspectNote = UITheme::Recycle::Text::NOTE_CONTAMINATED;
+        } else {
+            warnBanner = UITheme::Recycle::Text::GUIDE_INSPECT_FAIL;
+            inspectNote = UITheme::Recycle::Text::NOTE_GENERAL_FAIL;
+        }
+
+        emit sigDetectionBoxUpdated(top.className, top.confidence, 0, top.box, false, inspectNote);
+        emit sigGuideBannerRequested(static_cast<int>(UITheme::Recycle::BannerType::WARNING), warnBanner);
+        return;
+    }
+
+    // 6. 정상 검출 품목: 변경 감지 시 이전 디바운스 카운트 초기화
     if (top.category != m_lastCategory) {
         m_lastCategory = top.category;
         m_consecutiveDetections = 0;
     }
 
     m_consecutiveDetections++;
-    emit sigDetectionBoxUpdated(top.className, top.confidence, m_consecutiveDetections, top.box);
+    emit sigDetectionBoxUpdated(top.className, top.confidence, m_consecutiveDetections, top.box, true, QString());
 
-    // 6. 비전 인식 단계 배너 안내: 1.5초(45프레임) 유지 시 확인 완료 배너, 진행 중일 시 인식 중 배너
+    // 7. 비전 인식 단계 배너 안내: 1.5초(45프레임) 유지 시 확인 완료 배너, 진행 중일 시 인식 중 배너
     if (m_consecutiveDetections >= Config::STABLE_FRAME_THRESHOLD) {
         emit sigGuideBannerRequested(static_cast<int>(UITheme::Recycle::BannerType::CONFIRMED),
             Config::getCategoryNameKo(top.category));
