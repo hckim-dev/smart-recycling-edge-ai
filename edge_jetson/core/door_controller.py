@@ -65,10 +65,20 @@ class AutoDoorController:
             self._handle_open_state(top_item, curr_time)
 
     def _extract_top_item(self, detections: list[dict[str, Any]]) -> str | None:
-        """프레임 내 검출 객체 중 최고 신뢰도를 가진 품목 카테고리명(대문자) 반환."""
+        """프레임 내 검출 객체 중 최고 신뢰도를 가진 품목 카테고리명(대문자) 반환.
+
+        단, 2단계 세부 품질 검사(inspection) 결과가 존재하고 불합격(passed == False)인
+        경우 도어 자동 개방 대상에서 안전하게 배제합니다.
+        """
         if not detections:
             return None
         best_det = max(detections, key=lambda x: x.get(DetectionKey.CONFIDENCE, 0.0))
+
+        # 2-Stage 세부 품질 검사 결과 반영 (라벨 부착, 오염 등 불합격 시 개방 차단)
+        inspection = best_det.get("inspection")
+        if inspection is not None and not inspection.get("passed", True):
+            return None
+
         item = best_det.get(DetectionKey.CATEGORY) or best_det.get(
             DetectionKey.CLASS_NAME, ""
         )

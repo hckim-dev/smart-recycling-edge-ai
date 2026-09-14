@@ -82,6 +82,56 @@ class ModelConfig:
 
 
 @dataclass(frozen=True)
+class InspectionTaskConfig:
+    """개별 2단계 세부 검사 작업(Task) 선언적 명세."""
+
+    task_id: str  # 고유 작업 ID (예: "pet_label", "pet_contamination")
+    target_category: Category  # 대상 품목 열거형 (예: Category.PET)
+    engine_path: Path  # TensorRT 엔진 경로
+    input_shape: tuple[int, int] = (224, 224)  # (H, W)
+    threshold: float = 0.50  # 판정 기준 확률 (0.0 ~ 1.0)
+    is_positive_fail: bool = True  # True: score >= threshold 일 때 불량(Fail), False: score < threshold 일 때 불량
+    fail_reason: str = "INSPECTION_FAILED"  # 불량 판정 시 리포트 사유
+    enabled: bool = True  # 활성화 플래그
+
+
+@dataclass(frozen=True)
+class InspectionPipelineConfig:
+    """2단계 세부 검사 파이프라인 전역 설정."""
+
+    enabled: bool = True
+    min_crop_size: int = 40  # 너무 작은 노이즈 BBox 무시 기준 (px)
+    tasks: tuple[InspectionTaskConfig, ...] = field(
+        default_factory=lambda: (
+            # 1. PET 라벨 부착 여부 검사 (현재 엔진 준비 완료)
+            InspectionTaskConfig(
+                task_id="pet_label",
+                target_category=Category.PET,
+                engine_path=JETSON_ROOT_DIR
+                / "models"
+                / "pet_inspection_v1_label_mobilenet_v3_small.engine",
+                threshold=0.50,
+                is_positive_fail=True,
+                fail_reason="LABEL_ATTACHED",
+                enabled=True,
+            ),
+            # 2. PET 오염/이물질 여부 검사 (현재 모델 학습 중 -> 엔진 파일 미존재 시 자동 BYPASS)
+            InspectionTaskConfig(
+                task_id="pet_contamination",
+                target_category=Category.PET,
+                engine_path=JETSON_ROOT_DIR
+                / "models"
+                / "pet_inspection_contamination_mobilenet_v3.engine",
+                threshold=0.50,
+                is_positive_fail=True,
+                fail_reason="CONTAMINATED",
+                enabled=True,
+            ),
+        )
+    )
+
+
+@dataclass(frozen=True)
 class NetworkConfig:
     """관제 PC 연동 TCP 영상 스트리밍 소켓 설정."""
 
@@ -119,6 +169,9 @@ class AppConfig:
 
     cam: CameraConfig = field(default_factory=CameraConfig)
     model: ModelConfig = field(default_factory=ModelConfig)
+    inspection: InspectionPipelineConfig = field(
+        default_factory=InspectionPipelineConfig
+    )
     net: NetworkConfig = field(default_factory=NetworkConfig)
     serial: SerialConfig = field(default_factory=SerialConfig)
     door: DoorConfig = field(default_factory=DoorConfig)

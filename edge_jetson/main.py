@@ -4,10 +4,17 @@ import signal
 import time
 from contextlib import suppress
 
-from configs.config import MODEL_CLASS_MAP, ProtocolKey, cfg
+from configs.config import (
+    MODEL_CLASS_MAP,
+    Category,
+    DetectionKey,
+    ProtocolKey,
+    cfg,
+)
 from core.camera import CameraStream
 from core.detector import YOLOv11Detector
 from core.door_controller import AutoDoorController
+from core.inspector import InspectionPipeline
 from core.trt_engine import TensorRTEngine
 from stream.protocol import ClientAction, ClientCommand
 from stream.serial_controller import SerialController
@@ -40,6 +47,9 @@ def main():
         iou_thresh=cfg.model.iou_threshold,
         class_map=MODEL_CLASS_MAP,
     )
+
+    # 2단계 세부 검사(라벨, 오염 등) 플러그인 파이프라인 초기화
+    inspector_pipeline = InspectionPipeline(config=cfg.inspection)
 
     socket_server = StreamSocketServer(
         host=cfg.net.host,
@@ -101,6 +111,31 @@ def main():
             # 비전 AI 추론 및 지연시간(Latency) 계측
             t0 = time.time()
             detections = detector.detect(frame)
+
+            # 2-Stage 세부 품질 검사 (Crop & Inspect): 대상 품목(PET 등) 선별 평가
+            if cfg.inspection.enabled and detections:
+                h, w = frame.shape[:2]
+                for det in detections:
+                    cat_str = det.get(DetectionKey.CATEGORY, "")
+                    try:
+                        cat = Category(cat_str)
+                    except ValueError:
+                        cat = Category.UNKNOWN
+
+                    # 2단계 검사 대상인 경우 BBox 안전 클리핑 후 세부 품질 검사 실행
+                    if cat == Category.PET:
+                        box = det.get(DetectionKey.BOX, [0, 0, 0, 0])
+                        x1 = max(0, min(w - 1, int(box[0])))
+                        y1 = max(0, min(h - 1, int(box[1])))
+                        x2 = max(0, min(w, int(box[2])))
+                        y2 = max(0, min(h, int(box[3])))
+
+                        if (x2 - x1) > 10 and (y2 - y1) > 10:
+                            crop = frame[y1:y2, x1:x2]
+                            det["inspection"] = inspector_pipeline.inspect_crop(
+                                crop, cat
+                            )
+
             infer_ms = (time.time() - t0) * 1000.0
 
             # 감지 결과 기반 수거함 도어 FSM 상태 전이
@@ -134,6 +169,8 @@ def main():
             socket_server.close()
         with suppress(Exception):
             serial_ctrl.close()
+        with suppress(Exception):
+            inspector_pipeline.destroy()
         with suppress(Exception):
             trt_engine.destroy()
         with suppress(Exception):
