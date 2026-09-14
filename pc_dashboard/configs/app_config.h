@@ -308,8 +308,8 @@ struct Detection {
         d.classId = obj.value(KEY_CLASS_ID).toInt();
         d.className = obj.value(KEY_CLASS_NAME).toString();
         d.confidence = obj.value(KEY_CONFIDENCE).toDouble();
-        d.category = Config::parseCategory(d.className);
-        // 1차: YOLO 모델 출력 인덱스(0: 페트, 1: 캔, 2: 종이, 3: 비닐) 기반 직접 매핑
+
+        // 1차: YOLO 모델 출력 인덱스(0: 종이, 1: 캔, 2: 페트, 3: 비닐) 기반 직접 매핑
         d.category = Config::modelIndexToCategory(d.classId);
 
         // 2차: 인덱스 매핑 실패 시 클래스명 문자열 기반 폴백 매핑
