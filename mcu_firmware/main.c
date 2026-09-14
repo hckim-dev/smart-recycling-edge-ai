@@ -183,6 +183,7 @@ void Main(void)
         }
 
         Servo_Update();
+        Recycle_Update(); // 아래 2개 모터 도착 확인 후 TOP 모터를 뒤이어 출발시킴 (동시 이동 방지)
 
         {
             int reason = Recycle_Auto_Close_Update();
