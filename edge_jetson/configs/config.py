@@ -144,13 +144,13 @@ class InspectionPipelineConfig:
                 fail_reason=InspectionReason.LABEL_ATTACHED.value,
                 enabled=True,
             ),
-            # 2. PET 오염/이물질 여부 검사 (현재 모델 학습 중 -> 엔진 파일 미존재 시 자동 BYPASS)
+            # 2. PET 오염/내용물 잔여 검사 (ResNet18 기반)
             InspectionTaskConfig(
-                task_id="pet_contamination",
+                task_id="pet_content",
                 target_category=Category.PET,
                 engine_path=JETSON_ROOT_DIR
                 / "models"
-                / "pet_inspection_contamination_mobilenet_v3.engine",
+                / "pet_inspection_v1_content_resnet18.engine",
                 input_shape=(224, 224),
                 threshold=0.50,
                 is_positive_fail=True,
