@@ -19,4 +19,8 @@ void Servo_Set_Angle_Speed(Servo_Ch ch, unsigned char angle, unsigned short deg_
 
 void Servo_Update(void);
 
+// 해당 채널이 아직 목표각으로 램프 이동 중인지 (0=도착/정지, 1=이동 중)
+// -> 상위 로직(recycle.c)이 "이 모터가 자리를 다 잡았는지" 확인할 때 사용
+unsigned char Servo_Is_Moving(Servo_Ch ch);
+
 #endif

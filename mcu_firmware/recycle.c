@@ -41,30 +41,49 @@ static RecycleType s_open_type = RECYCLE_NONE;
 static unsigned long s_gate_open_tick = 0;
 static volatile unsigned char s_close_requested = 0;
 
-// 품목별 3모터 목표각 - 해당 없는 그룹의 세부모터는 그 그룹의 기본(default) 각도를 유지
-// Servo_Set_Angle_Speed로 램프 이동시킴 (DOOR_SERVO_SPEED_DEG_PER_SEC로 부드럽게)
-// -> Main() 루프에서 Servo_Update()가 계속 불려야 실제로 움직임이 진행됨
-static void Set_Route(RecycleType type)
+// TOP 모터를 아래 두 모터보다 먼저/동시에 움직이지 않기 위한 대기 상태.
+// Recycle_Door_Open()은 아래 두 모터만 먼저 이동시키고, TOP은 여기 걸어만 둔다.
+// -> Recycle_Update()가 매 루프 아래 두 모터의 도착 여부를 확인해서 TOP을 나중에 출발시킴
+static volatile unsigned char s_top_move_pending = 0;
+static RecycleType s_pending_route_type = RECYCLE_NONE;
+
+// 품목의 그룹(종이/캔 vs 페트/비닐)에 따른 TOP 목표각
+static unsigned char Top_Angle_For(RecycleType type)
 {
     switch (type)
     {
     case RECYCLE_PAPER:
-        Servo_Set_Angle_Speed(TOP_CH, TOP_ANGLE_PAPER_CAN, DOOR_SERVO_SPEED_DEG_PER_SEC);
+    case RECYCLE_CAN:
+        return TOP_ANGLE_PAPER_CAN;
+    case RECYCLE_PET:
+    case RECYCLE_VINYL:
+        return TOP_ANGLE_PET_VINYL;
+    default:
+        return TOP_ANGLE_NEUTRAL;
+    }
+}
+
+// 아래쪽 세부분류 모터(PAPERCAN_CH/PETVINYL_CH) 2개만 먼저 목표각으로 이동.
+// TOP_CH는 여기서 건드리지 않는다 - Recycle_Update()가 이 둘의 도착을 확인한 뒤 출발시킴.
+// Servo_Set_Angle_Speed로 램프 이동시킴 (DOOR_SERVO_SPEED_DEG_PER_SEC로 부드럽게)
+// -> Main() 루프에서 Servo_Update()가 계속 불려야 실제로 움직임이 진행됨
+static void Set_Bottom_Route(RecycleType type)
+{
+    switch (type)
+    {
+    case RECYCLE_PAPER:
         Servo_Set_Angle_Speed(PAPERCAN_CH, PAPERCAN_ANGLE_DEFAULT_PAPER, DOOR_SERVO_SPEED_DEG_PER_SEC);
         Servo_Set_Angle_Speed(PETVINYL_CH, PETVINYL_ANGLE_DEFAULT_PET, DOOR_SERVO_SPEED_DEG_PER_SEC);
         break;
     case RECYCLE_CAN:
-        Servo_Set_Angle_Speed(TOP_CH, TOP_ANGLE_PAPER_CAN, DOOR_SERVO_SPEED_DEG_PER_SEC);
         Servo_Set_Angle_Speed(PAPERCAN_CH, PAPERCAN_ANGLE_CAN, DOOR_SERVO_SPEED_DEG_PER_SEC);
         Servo_Set_Angle_Speed(PETVINYL_CH, PETVINYL_ANGLE_DEFAULT_PET, DOOR_SERVO_SPEED_DEG_PER_SEC);
         break;
     case RECYCLE_PET:
-        Servo_Set_Angle_Speed(TOP_CH, TOP_ANGLE_PET_VINYL, DOOR_SERVO_SPEED_DEG_PER_SEC);
         Servo_Set_Angle_Speed(PETVINYL_CH, PETVINYL_ANGLE_DEFAULT_PET, DOOR_SERVO_SPEED_DEG_PER_SEC);
         Servo_Set_Angle_Speed(PAPERCAN_CH, PAPERCAN_ANGLE_DEFAULT_PAPER, DOOR_SERVO_SPEED_DEG_PER_SEC);
         break;
     case RECYCLE_VINYL:
-        Servo_Set_Angle_Speed(TOP_CH, TOP_ANGLE_PET_VINYL, DOOR_SERVO_SPEED_DEG_PER_SEC);
         Servo_Set_Angle_Speed(PETVINYL_CH, PETVINYL_ANGLE_VINYL, DOOR_SERVO_SPEED_DEG_PER_SEC);
         Servo_Set_Angle_Speed(PAPERCAN_CH, PAPERCAN_ANGLE_DEFAULT_PAPER, DOOR_SERVO_SPEED_DEG_PER_SEC);
         break;
@@ -101,6 +120,9 @@ RecycleType Recycle_Type_From_String(const char *s)
 }
 
 // 품목에 맞는 경로로 3모터를 이동(DOOR_SERVO_SPEED_DEG_PER_SEC로 부드럽게) - 물리적 게이트가 따로 없어 이 각도 자체가 "열림"
+// 순서 보장: 아래쪽 세부분류 모터(PAPERCAN_CH/PETVINYL_CH) 2개를 먼저 출발시키고,
+// TOP_CH(투입구)는 Recycle_Update()가 그 2개의 도착을 확인한 뒤에 출발시킨다.
+// (동시에 움직이면 TOP이 먼저 열려서 세부분류 위치가 안 잡힌 채 쓰레기가 떨어질 수 있음)
 void Recycle_Door_Open(RecycleType type)
 {
     if (type == RECYCLE_NONE)
@@ -108,7 +130,10 @@ void Recycle_Door_Open(RecycleType type)
         return;
     }
 
-    Set_Route(type);
+    Set_Bottom_Route(type);
+
+    s_pending_route_type = type;
+    s_top_move_pending = 1; // TOP은 아직 출발 안 시킴 - Recycle_Update()가 이어받음
 
     s_gate_state = GATE_OPEN;
     s_open_type = type;
@@ -116,8 +141,25 @@ void Recycle_Door_Open(RecycleType type)
     s_close_requested = 0;
 }
 
+// 아래 두 모터가 목표각에 다 도착했을 때만 TOP_CH를 출발시킨다.
+// main 루프에서 Servo_Update() 직후 매번 호출되어야 함.
+void Recycle_Update(void)
+{
+    if (!s_top_move_pending)
+    {
+        return;
+    }
+
+    if (!Servo_Is_Moving(PAPERCAN_CH) && !Servo_Is_Moving(PETVINYL_CH))
+    {
+        Servo_Set_Angle_Speed(TOP_CH, Top_Angle_For(s_pending_route_type), DOOR_SERVO_SPEED_DEG_PER_SEC);
+        s_top_move_pending = 0;
+    }
+}
+
 static void Do_Close(void)
 {
+    s_top_move_pending = 0; // 닫는 도중이면 TOP 지연 출발 예약은 취소 (Set_Neutral이 TOP도 즉시 되돌림)
     Set_Neutral();
     s_gate_state = GATE_CLOSED;
     s_open_type = RECYCLE_NONE;

@@ -86,6 +86,13 @@ void Servo_Set_Angle_Speed(Servo_Ch ch, unsigned char angle, unsigned short deg_
     g_servo_last_tick[ch] = g_sys_tick;
 }
 
+// g_servo_speed_deg_per_ms[ch] > 0 이면 아직 목표각까지 램프 이동 중 (Servo_Update가 도착 시 0으로 클리어함)
+unsigned char Servo_Is_Moving(Servo_Ch ch)
+{
+    if (ch >= SERVO_COUNT) return 0;
+    return (g_servo_speed_deg_per_ms[ch] > 0.0f) ? 1 : 0;
+}
+
 // non-blocking: main 루프에서 매 반복 호출해야 램프가 실제로 진행된다 
 void Servo_Update(void)
 {
