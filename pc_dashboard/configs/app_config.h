@@ -53,7 +53,7 @@ constexpr int DEFAULT_BIN_ID = 1;
 
 // 비전 객체 인식 확정 판정 임계치
 constexpr int STABLE_FRAME_THRESHOLD = 25; // 동일 클래스 안정 인식 시 바운스 필터링 통과 기준 프레임 수
-constexpr double MIN_CONFIDENCE_THRESHOLD = 0.80; // 객체 검출 최소 신뢰도 하한선
+constexpr double MIN_CONFIDENCE_THRESHOLD = 0.70; // 객체 검출 최소 신뢰도 하한선
 
 // 하드웨어 수거함 임계치 및 세션 타임아웃
 constexpr int MAX_BIN_CAPACITY = 100;

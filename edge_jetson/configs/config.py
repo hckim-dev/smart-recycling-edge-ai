@@ -103,7 +103,7 @@ class ModelConfig:
 
     engine_path: Path = JETSON_ROOT_DIR / "models" / "recycle_detect_yolo11n.engine"
     input_shape: tuple[int, int] = (640, 640)
-    conf_threshold: float = 0.80
+    conf_threshold: float = 0.70
     iou_threshold: float = 0.45
     # YOLO 모델 학습 클래스 순서 (0: 종이, 1: 캔, 2: 페트, 3: 비닐)
     class_names: tuple[str, ...] = tuple(meta.name_en for meta in MODEL_CLASS_MAP)
