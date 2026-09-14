@@ -103,7 +103,7 @@ class ModelConfig:
 
     engine_path: Path = JETSON_ROOT_DIR / "models" / "recycle_detect_yolo11n.engine"
     input_shape: tuple[int, int] = (640, 640)
-    conf_threshold: float = 0.50
+    conf_threshold: float = 0.80
     iou_threshold: float = 0.45
     # YOLO 모델 학습 클래스 순서 (0: 종이, 1: 캔, 2: 페트, 3: 비닐)
     class_names: tuple[str, ...] = tuple(meta.name_en for meta in MODEL_CLASS_MAP)
@@ -184,11 +184,12 @@ class DoorConfig:
     """수거함 도어 FSM 디바운스 및 타임아웃 파라미터."""
 
     auto_open: bool = True  # True: AI 감지 안정 유지 시 자동 개방 활성화
-    stable_sec: float = 1.5  # 오검출 방지용 안정 인식 유지 시간 (1.5초 텀)
-    stable_frames: int = 25  # 약 20~30 FPS 기준 최소 요구 프레임 수
+    stable_sec: float = 1.0  # 오검출 방지용 안정 인식 최소 유지 시간 (초)
+    stable_frames: int = 15  # 안정 판정을 위한 최소 연속 유효 프레임 수
     min_hold_sec: float = 3.0  # 투입 안전을 위한 최소 개방 유지 시간 (초)
-    lost_tolerance: int = 15  # 깜빡임/가림 허용 부재 프레임 수 (약 0.5초)
-    max_open_sec: float = 10.0  # 모터 보호 및 방치 방지용 최대 개방 제한 시간 (초)
+    lost_tolerance: int = 30  # 투입 중 물체 가림 및 모션 블러 발생 시 조기 폐쇄(손끼임) 방지 유예 프레임 수 (약 1.0초)
+    miss_tolerance: int = 3  # 순간적인 검출 누락(조명/블러) 발생 시 연속 상태 보존을 위한 드롭아웃 허용 한도
+    max_open_sec: float = 10.0  # 모터 과열 보호 및 방치 방지용 최대 개방 제한 시간 (초)
 
 
 @dataclass(frozen=True)

@@ -24,6 +24,7 @@ class AutoDoorController:
         self.candidate_start_time: float = 0.0
         self.consecutive_count: int = 0
         self.lost_count: int = 0
+        self.miss_count: int = 0
 
         # 품질 검사 반려 로그 스팸 방지용 디바운스 상태
         self._last_blocked_log_time: float = 0.0
@@ -38,6 +39,7 @@ class AutoDoorController:
             self.active_item = target_item
             self.door_open_timestamp = curr_time
             self.lost_count = 0
+            self.miss_count = 0
             print(f"[DOOR] 명시적 명령 도어 개방: {target_item}")
             return True
         return False
@@ -51,6 +53,7 @@ class AutoDoorController:
             self.candidate_start_time = 0.0
             self.consecutive_count = 0
             self.lost_count = 0
+            self.miss_count = 0
             print("[DOOR] 명시적 명령 도어 폐쇄")
             return True
         return False
@@ -101,13 +104,17 @@ class AutoDoorController:
         return item.upper() or None
 
     def _update_candidate(self, top_item: str | None, curr_time: float) -> None:
-        """카메라 앞 후보 품목 및 안정 감지 카운트 추적."""
+        """카메라 앞 후보 품목 및 안정 감지 카운트 추적 (드롭아웃 내결함성 적용)."""
         if top_item is None:
-            self.candidate_item = None
-            self.consecutive_count = 0
-            self.candidate_start_time = 0.0
+            self.miss_count += 1
+            # 순간적인 검출 누락(조명/블러)은 유예하고 지속적 부재 시에만 후보 상태 초기화
+            if self.miss_count > self.config.miss_tolerance:
+                self.candidate_item = None
+                self.consecutive_count = 0
+                self.candidate_start_time = 0.0
             return
 
+        self.miss_count = 0
         if top_item == self.candidate_item:
             self.consecutive_count += 1
         else:
@@ -116,13 +123,17 @@ class AutoDoorController:
             self.candidate_start_time = curr_time
 
     def _handle_closed_state(self, top_item: str | None, curr_time: float) -> None:
-        """닫힘 상태(자동 모드 전용): 1.5초 이상 연속 인식 충족 시 자동 OPEN 명령 송신."""
+        """닫힘 상태(자동 모드 전용): 연속 유효 인식 충족 시 자동 OPEN 명령 송신."""
         if top_item is None:
-            self.candidate_item = None
-            self.consecutive_count = 0
-            self.candidate_start_time = 0.0
+            self.miss_count += 1
+            # 순간적인 프레임 드롭 발생 시 연속 인식 카운트의 조기 리셋 방지
+            if self.miss_count > self.config.miss_tolerance:
+                self.candidate_item = None
+                self.consecutive_count = 0
+                self.candidate_start_time = 0.0
             return
 
+        self.miss_count = 0
         if top_item == self.candidate_item:
             self.consecutive_count += 1
         else:
@@ -132,7 +143,7 @@ class AutoDoorController:
 
         elapsed = curr_time - self.candidate_start_time
 
-        # 1.5초(stable_sec) 유지 시간 및 최소 프레임 수 충족 시 자동 도어 개방
+        # stable_sec 유지 시간 및 최소 프레임 수 충족 시 자동 도어 개방
         if (
             elapsed >= self.config.stable_sec
             and self.consecutive_count >= self.config.stable_frames
@@ -142,6 +153,7 @@ class AutoDoorController:
             self.active_item = top_item
             self.door_open_timestamp = curr_time
             self.lost_count = 0
+            self.miss_count = 0
             print(
                 f"[DOOR] 자동 개방: {top_item} (유지 시간: {elapsed:.2f}초, 프레임: {self.consecutive_count})"
             )

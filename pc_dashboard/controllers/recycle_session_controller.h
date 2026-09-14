@@ -44,6 +44,7 @@ private:
 
     int m_consecutiveDetections { 0 };
     RecycleCategory m_lastCategory { RecycleCategory::UNKNOWN };
+    int m_missCount { 0 }; // 순간적 검출 누락 시 Bounding Box 플리커링 방지용 프레임 유예 카운터
     bool m_itemCounted { false };
     bool m_doorWasOpen { false }; // MCU 하드웨어 도어 이전 프레임 상태 (Rising Edge 검출용)
 };
