@@ -142,11 +142,13 @@ class InspectionPipelineConfig:
                 fail_reason=InspectionReason.LABEL_ATTACHED.value,
                 enabled=True,
             ),
-            # 2. PET 오염/내용물 잔여 검사 (ResNet18 기반)
+            # 2. PET 오염/내용물 잔여 검사 (EfficientNet 기반)
             InspectionTaskConfig(
                 task_id="pet_content",
                 target_category=Category.PET,
-                engine_path=JETSON_ROOT_DIR / "models" / "pet_content_resnet18.engine",
+                engine_path=JETSON_ROOT_DIR
+                / "models"
+                / "pet_content_efficientnet.engine",
                 input_shape=(224, 224),
                 threshold=0.50,
                 is_positive_fail=True,
@@ -171,7 +173,7 @@ class NetworkConfig:
 class SerialConfig:
     """STM32 MCU UART 시리얼 통신 설정."""
 
-    port: str = "/dev/ttyACM0"
+    port: str = "/dev/ttyMCU"
     baudrate: int = 115200
     timeout: float = 0.1
     enabled: bool = True
@@ -181,7 +183,7 @@ class SerialConfig:
 class DoorConfig:
     """수거함 도어 FSM 디바운스 및 타임아웃 파라미터."""
 
-    auto_open: bool = True  # True: AI 감지 안정 유지 시 자동 개방 (원복 완료)
+    auto_open: bool = True  # True: AI 감지 안정 유지 시 자동 개방 활성화
     stable_sec: float = 1.5  # 오검출 방지용 안정 인식 유지 시간 (1.5초 텀)
     stable_frames: int = 25  # 약 20~30 FPS 기준 최소 요구 프레임 수
     min_hold_sec: float = 3.0  # 투입 안전을 위한 최소 개방 유지 시간 (초)
