@@ -4,7 +4,14 @@ from typing import Any
 
 import cv2
 import numpy as np
-from configs.config import Category, InspectionPipelineConfig, InspectionTaskConfig
+from configs.config import (
+    Category,
+    InspectionKey,
+    InspectionPipelineConfig,
+    InspectionReason,
+    InspectionStatus,
+    InspectionTaskConfig,
+)
 
 from core.trt_engine import TensorRTEngine
 
@@ -29,7 +36,7 @@ class ClassifierInspector:
                 print(
                     f"[INSPECTOR] [{self.cfg.task_id}] 엔진 로드 성공 (ACTIVE: {self.cfg.engine_path.name})"
                 )
-            except Exception as exc:
+            except (RuntimeError, OSError, ValueError) as exc:
                 print(f"[INSPECTOR ERROR] [{self.cfg.task_id}] 엔진 로드 실패: {exc}")
         else:
             # 모델 담당자가 아직 학습 중인 경우: 시스템 다운 없이 우아하게 바이패스 모드로 진입
@@ -78,43 +85,74 @@ class InspectionPipeline:
             ClassifierInspector(task) for task in self.cfg.tasks
         ]
 
+    def has_tasks_for(self, category: Category) -> bool:
+        """해당 카테고리에 대해 등록 및 활성화된 검사 태스크가 존재하는지 확인."""
+        if not self.cfg.enabled:
+            return False
+        return any(
+            ins.cfg.target_category == category and ins.cfg.enabled
+            for ins in self.inspectors
+        )
+
     def inspect_crop(self, crop_bgr: np.ndarray, category: Category) -> dict[str, Any]:
-        """BBox 영역에 대해 해당 카테고리에 할당된 모든 검사를 단일 전처리로 순차 평가."""
+        """BBox 영역에 대해 해당 카테고리에 할당된 모든 검사를 순차 평가.
+
+        다양한 해상도(input_shape)를 지원하며, 동일 해상도 모델 간에는
+        전처리 결과(blob)를 1회만 생성하여 캐싱 공유합니다.
+        """
+        if crop_bgr is None or crop_bgr.size == 0:
+            return {
+                InspectionKey.PASSED.value: False,
+                InspectionKey.REASONS.value: [InspectionReason.CROP_TOO_SMALL.value],
+                InspectionKey.DETAILS.value: {},
+            }
+
         h, w = crop_bgr.shape[:2]
         if h < self.cfg.min_crop_size or w < self.cfg.min_crop_size:
             return {
-                "passed": False,
-                "reasons": ["CROP_TOO_SMALL"],
-                "details": {},
+                InspectionKey.PASSED.value: False,
+                InspectionKey.REASONS.value: [InspectionReason.CROP_TOO_SMALL.value],
+                InspectionKey.DETAILS.value: {},
             }
-
-        # 224x224 RGB NHWC float32 공통 전처리 (1회만 수행하여 다중 엔진이 메모리 공유)
-        resized = cv2.resize(crop_bgr, (224, 224), interpolation=cv2.INTER_LINEAR)
-        rgb = cv2.cvtColor(resized, cv2.COLOR_BGR2RGB).astype(np.float32)
-        blob = np.expand_dims(rgb, axis=0)
 
         all_passed = True
         reasons: list[str] = []
         details: dict[str, Any] = {}
+        # 입력 해상도별 전처리 블롭 캐시 (다중 엔진 간 중복 연산 방지)
+        blob_cache: dict[tuple[int, int], np.ndarray] = {}
 
         for inspector in self.inspectors:
             # 해당 카테고리(예: Category.PET) 전용 검사기만 선별 실행
             if inspector.cfg.target_category != category:
                 continue
 
+            shape = inspector.cfg.input_shape  # (target_h, target_w)
+            if shape not in blob_cache:
+                target_h, target_w = shape
+                resized = cv2.resize(
+                    crop_bgr, (target_w, target_h), interpolation=cv2.INTER_LINEAR
+                )
+                rgb = cv2.cvtColor(resized, cv2.COLOR_BGR2RGB).astype(np.float32)
+                blob_cache[shape] = np.expand_dims(rgb, axis=0)
+
+            blob = blob_cache[shape]
             passed, score, fail_reason = inspector.evaluate(blob)
-            status_str = (
-                "PASS"
-                if passed and score is not None
-                else "FAIL"
-                if not passed
-                else "BYPASS"
-            )
+
+            if score is not None:
+                status_str = (
+                    InspectionStatus.PASS.value
+                    if passed
+                    else InspectionStatus.FAIL.value
+                )
+            else:
+                status_str = InspectionStatus.BYPASS.value
 
             details[inspector.cfg.task_id] = {
-                "passed": passed,
-                "score": round(score, 3) if score is not None else None,
-                "status": status_str,
+                InspectionKey.PASSED.value: passed,
+                InspectionKey.SCORE.value: round(score, 3)
+                if score is not None
+                else None,
+                InspectionKey.STATUS.value: status_str,
             }
 
             if not passed:
@@ -123,9 +161,9 @@ class InspectionPipeline:
                     reasons.append(fail_reason)
 
         return {
-            "passed": all_passed,
-            "reasons": reasons,
-            "details": details,
+            InspectionKey.PASSED.value: all_passed,
+            InspectionKey.REASONS.value: reasons,
+            InspectionKey.DETAILS.value: details,
         }
 
     def destroy(self) -> None:

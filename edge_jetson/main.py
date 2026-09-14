@@ -122,18 +122,19 @@ def main():
                     except ValueError:
                         cat = Category.UNKNOWN
 
-                    # 2단계 검사 대상인 경우 BBox 안전 클리핑 후 세부 품질 검사 실행
-                    if cat == Category.PET:
+                    # 2단계 검사 태스크가 등록된 품목인 경우 BBox 안전 클리핑 후 세부 품질 검사 실행
+                    if inspector_pipeline.has_tasks_for(cat):
                         box = det.get(DetectionKey.BOX, [0, 0, 0, 0])
                         x1 = max(0, min(w - 1, int(box[0])))
                         y1 = max(0, min(h - 1, int(box[1])))
                         x2 = max(0, min(w, int(box[2])))
                         y2 = max(0, min(h, int(box[3])))
+                        min_size = cfg.inspection.min_crop_size
 
-                        if (x2 - x1) > 10 and (y2 - y1) > 10:
+                        if (x2 - x1) >= min_size and (y2 - y1) >= min_size:
                             crop = frame[y1:y2, x1:x2]
-                            det["inspection"] = inspector_pipeline.inspect_crop(
-                                crop, cat
+                            det[DetectionKey.INSPECTION.value] = (
+                                inspector_pipeline.inspect_crop(crop, cat)
                             )
 
             infer_ms = (time.time() - t0) * 1000.0

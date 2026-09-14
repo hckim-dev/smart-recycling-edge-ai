@@ -48,6 +48,34 @@ class DetectionKey(str, Enum):
     CATEGORY = "category"
     CONFIDENCE = "confidence"
     BOX = "box"
+    INSPECTION = "inspection"
+
+
+class InspectionKey(str, Enum):
+    """2단계 세부 품질 검사 결과 딕셔너리 키 규격."""
+
+    PASSED = "passed"
+    REASONS = "reasons"
+    DETAILS = "details"
+    SCORE = "score"
+    STATUS = "status"
+
+
+class InspectionStatus(str, Enum):
+    """개별 검사 태스크 판정 상태 규격."""
+
+    PASS = "PASS"
+    FAIL = "FAIL"
+    BYPASS = "BYPASS"
+
+
+class InspectionReason(str, Enum):
+    """공통 검사 불합격(반려) 사유 규격."""
+
+    LABEL_ATTACHED = "LABEL_ATTACHED"
+    CONTAMINATED = "CONTAMINATED"
+    CROP_TOO_SMALL = "CROP_TOO_SMALL"
+    UNKNOWN = "UNKNOWN"
 
 
 @dataclass(frozen=True)
@@ -91,7 +119,7 @@ class InspectionTaskConfig:
     input_shape: tuple[int, int] = (224, 224)  # (H, W)
     threshold: float = 0.50  # 판정 기준 확률 (0.0 ~ 1.0)
     is_positive_fail: bool = True  # True: score >= threshold 일 때 불량(Fail), False: score < threshold 일 때 불량
-    fail_reason: str = "INSPECTION_FAILED"  # 불량 판정 시 리포트 사유
+    fail_reason: str = InspectionReason.UNKNOWN.value  # 불량 판정 시 리포트 사유
     enabled: bool = True  # 활성화 플래그
 
 
@@ -110,9 +138,10 @@ class InspectionPipelineConfig:
                 engine_path=JETSON_ROOT_DIR
                 / "models"
                 / "pet_inspection_v1_label_mobilenet_v3_small.engine",
+                input_shape=(224, 224),
                 threshold=0.50,
                 is_positive_fail=True,
-                fail_reason="LABEL_ATTACHED",
+                fail_reason=InspectionReason.LABEL_ATTACHED.value,
                 enabled=True,
             ),
             # 2. PET 오염/이물질 여부 검사 (현재 모델 학습 중 -> 엔진 파일 미존재 시 자동 BYPASS)
@@ -122,9 +151,10 @@ class InspectionPipelineConfig:
                 engine_path=JETSON_ROOT_DIR
                 / "models"
                 / "pet_inspection_contamination_mobilenet_v3.engine",
+                input_shape=(224, 224),
                 threshold=0.50,
                 is_positive_fail=True,
-                fail_reason="CONTAMINATED",
+                fail_reason=InspectionReason.CONTAMINATED.value,
                 enabled=True,
             ),
         )

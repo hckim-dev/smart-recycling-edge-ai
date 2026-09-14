@@ -3,7 +3,7 @@
 import time
 from typing import Any
 
-from configs.config import DetectionKey, DoorConfig
+from configs.config import DetectionKey, DoorConfig, InspectionKey
 from stream.protocol import DoorAction, DoorState
 from stream.serial_controller import SerialController
 
@@ -24,6 +24,10 @@ class AutoDoorController:
         self.candidate_start_time: float = 0.0
         self.consecutive_count: int = 0
         self.lost_count: int = 0
+
+        # 품질 검사 반려 로그 스팸 방지용 디바운스 상태
+        self._last_blocked_log_time: float = 0.0
+        self._last_blocked_reason: str = ""
 
     def request_open(self, item: str | None = None) -> bool:
         """명시적 도어 개방 처리."""
@@ -75,8 +79,20 @@ class AutoDoorController:
         best_det = max(detections, key=lambda x: x.get(DetectionKey.CONFIDENCE, 0.0))
 
         # 2-Stage 세부 품질 검사 결과 반영 (라벨 부착, 오염 등 불합격 시 개방 차단)
-        inspection = best_det.get("inspection")
-        if inspection is not None and not inspection.get("passed", True):
+        inspection = best_det.get(DetectionKey.INSPECTION.value)
+        if inspection is not None and not inspection.get(
+            InspectionKey.PASSED.value, True
+        ):
+            reasons = ", ".join(inspection.get(InspectionKey.REASONS.value, []))
+            curr_time = time.time()
+            if (
+                curr_time - self._last_blocked_log_time > 1.5
+                or reasons != self._last_blocked_reason
+            ):
+                item_name = str(best_det.get(DetectionKey.CATEGORY, "ITEM")).upper()
+                print(f"[DOOR BLOCKED] {item_name} 투입 차단 (사유: {reasons})")
+                self._last_blocked_log_time = curr_time
+                self._last_blocked_reason = reasons
             return None
 
         item = best_det.get(DetectionKey.CATEGORY) or best_det.get(
