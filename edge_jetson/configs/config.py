@@ -101,7 +101,7 @@ MODEL_CLASS_MAP: tuple[ModelClassMeta, ...] = (
 class ModelConfig:
     """YOLOv11 TensorRT 엔진 경로 및 추론 임계값 설정."""
 
-    engine_path: Path = JETSON_ROOT_DIR / "models" / "recycle_yolo11n_best.engine"
+    engine_path: Path = JETSON_ROOT_DIR / "models" / "recycle_detect_yolo11n.engine"
     input_shape: tuple[int, int] = (640, 640)
     conf_threshold: float = 0.50
     iou_threshold: float = 0.45
@@ -131,13 +131,11 @@ class InspectionPipelineConfig:
     min_crop_size: int = 40  # 너무 작은 노이즈 BBox 무시 기준 (px)
     tasks: tuple[InspectionTaskConfig, ...] = field(
         default_factory=lambda: (
-            # 1. PET 라벨 부착 여부 검사 (현재 엔진 준비 완료)
+            # 1. PET 라벨 부착 여부 검사 (MobileNetV3 기반)
             InspectionTaskConfig(
                 task_id="pet_label",
                 target_category=Category.PET,
-                engine_path=JETSON_ROOT_DIR
-                / "models"
-                / "pet_inspection_v1_label_mobilenet_v3_small.engine",
+                engine_path=JETSON_ROOT_DIR / "models" / "pet_label_mobilenetv3.engine",
                 input_shape=(224, 224),
                 threshold=0.50,
                 is_positive_fail=True,
@@ -148,9 +146,7 @@ class InspectionPipelineConfig:
             InspectionTaskConfig(
                 task_id="pet_content",
                 target_category=Category.PET,
-                engine_path=JETSON_ROOT_DIR
-                / "models"
-                / "pet_inspection_v1_content_resnet18.engine",
+                engine_path=JETSON_ROOT_DIR / "models" / "pet_content_resnet18.engine",
                 input_shape=(224, 224),
                 threshold=0.50,
                 is_positive_fail=True,
