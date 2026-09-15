@@ -19,7 +19,7 @@ extern "C" {
 /* ---------------------------------------------------- */
 #define BIN_COUNT                 4       /* 수거함 개수 (0:종이, 1:캔, 2:페트, 3:비닐) */
 #define SAMPLE_WINDOW_SIZE        5       /* 평균 낼 최근 샘플 개수 */
-#define OUTLIER_THRESHOLD_CM      3.0f    /* 중앙값 기준 이 값(cm) 넘게 벗어나면 평균에서 제외 */
+#define OUTLIER_THRESHOLD_CM      5.0f    /* 중앙값 기준 이 값(cm) 넘게 벗어나면 평균에서 제외 */
 
 #define DEFAULT_BIN_EMPTY_CM      30.0f   /* 빈 통 바닥까지의 실측 거리 (적재율 0%) */
 #define DEFAULT_BIN_FULL_CM       5.0f    /* 만석 센서 앞 실측 거리 (적재율 100%) */

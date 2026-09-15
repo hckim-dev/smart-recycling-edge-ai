@@ -37,7 +37,8 @@ static void Sort_Samples(float *arr, uint8_t size)
  */
 static float Convert_Distance_To_Percent(const BinFilter *bin, float dist_cm)
 {
-    float effective_empty = bin->empty_cm - EMPTY_MARGIN_CM;
+    // 마진 없이 empty_cm/full_cm 그대로 사용: (38-raw)/30*100 과 동일한 계산
+    float effective_empty = bin->empty_cm;
 
     if (dist_cm >= effective_empty) return 0.0f;
     if (dist_cm <= bin->full_cm)     return 100.0f;

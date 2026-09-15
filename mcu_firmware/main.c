@@ -9,17 +9,32 @@
 #include "bin_filter.h"
 #include <stdio.h>
 #include <string.h>
+#include <stdarg.h>
 
 extern volatile unsigned long g_sys_tick;
 
 extern volatile char g_rx_line[RX_LINE_BUF_SIZE];
 extern volatile unsigned char g_rx_line_ready;
 
+// UART1(디버그 전용, PA9=TX)로만 나가는 로그. printf()는 UART2(Jetson 프로토콜)로
+// 나가므로 절대 섞이지 않는다. isr.c / recycle.c 등 device_driver.h를 include하는
+// 어디서든 바로 호출 가능.
+void Dbg_Log(const char *fmt, ...)
+{
+    char buf[64];
+    va_list ap;
+    va_start(ap, fmt);
+    vsnprintf(buf, sizeof(buf), fmt, ap);
+    va_end(ap);
+    for (char *p = buf; *p; p++) Uart1_Send_Byte(*p);
+}
+
 static void Sys_Init(int baud)
 {
     SCB->CPACR |= (0x3 << 10 * 2) | (0x3 << 11 * 2);
     Clock_Init();
     Uart2_Init(baud);
+    Uart1_Init(115200); // 디버그 콘솔 (PA9/PA10, 별도 USB-TTL 어댑터 필요)
     setvbuf(stdout, NULL, _IONBF, 0);
 }
 
@@ -105,6 +120,8 @@ static void Report_Bin_Fill(void)
 // Jetson 쪽에서 보내는 '$'로 시작하는 프로토콜 명령 처리 (분류 결과에 따른 도어 제어)
 static void Handle_Jetson_Command(const char *line)
 {
+    Dbg_Log("[RX] \"%s\"\n", line); // 젯슨 쪽 [SERIAL TX] 로그와 글자 단위로 대조
+
     if (strncmp(line, "$DOOR_OPEN:", 11) == 0)
     {
         const char *type_str = line + 11;
@@ -159,10 +176,11 @@ void Main(void)
 
     // 캘리브레이션: 센서가 통 입구 위 10cm에 장착, 통 깊이는 30cm
     // -> 빈 통(0%) = 10+30 = 40cm, 가득 참(100%) = 10cm
-    BinFilter_Config_Distance(BIN_PAPER, 40.0f, 10.0f);
-    BinFilter_Config_Distance(BIN_CAN,   40.0f, 10.0f);
-    BinFilter_Config_Distance(BIN_PET,   40.0f, 10.0f);
-    BinFilter_Config_Distance(BIN_VINYL, 40.0f, 10.0f);
+    // 센서 8cm 위 장착 + 통 깊이 30cm -> 빈 통(0%)=38, 가득 참(100%)=8
+    BinFilter_Config_Distance(BIN_PAPER, 38.0f, 8.0f);
+    BinFilter_Config_Distance(BIN_CAN,   38.0f, 8.0f);
+    BinFilter_Config_Distance(BIN_PET,   38.0f, 8.0f);
+    BinFilter_Config_Distance(BIN_VINYL, 38.0f, 8.0f);
 
     Uart2_RX_Interrupt_Enable(1);
 
