@@ -51,11 +51,20 @@ void Servo_Set_Angle(Servo_Ch ch, unsigned char angle)
     if (ch >= SERVO_COUNT) return;
     if (angle > 180) angle = 180;
 
+    // 즉시 이동 시 기존 진행 중이던 램프 상태를 즉시 무효화하여 상태 불일치 방지
+    g_servo_target[ch] = angle;
+    g_servo_current_f[ch] = (float)angle;
+    g_servo_speed_deg_per_ms[ch] = 0.0f;
     g_servo_angle[ch] = angle; // 논리 각도 그대로 저장 (조회/로그용)
 
     unsigned char eff_angle = Servo_Apply_Invert(ch, angle);
     // 표준 아날로그 서보 규격(0도=500us, 180도=2500us)에 맞춘 선형 변환
     unsigned short pulse_us = 500 + ((unsigned short)eff_angle * 2000 / 180);
+
+    // 하드웨어 기구 파손 방지용 펄스폭 엄격 클램핑 가드
+    if (pulse_us < 500) pulse_us = 500;
+    if (pulse_us > 2500) pulse_us = 2500;
+
     TIM3_PWM_Set_Pulse((unsigned char)ch, pulse_us);
 }
 
@@ -127,11 +136,18 @@ void Servo_Update(void)
             }
         }
 
+        if (g_servo_current_f[ch] < 0.0f)   g_servo_current_f[ch] = 0.0f;
+        if (g_servo_current_f[ch] > 180.0f) g_servo_current_f[ch] = 180.0f;
+
         unsigned char cur_angle = (unsigned char)(g_servo_current_f[ch] + 0.5f);
+        if (cur_angle > 180) cur_angle = 180;
         g_servo_angle[ch] = cur_angle; // 논리 각도 그대로 저장
 
         unsigned char eff_angle = Servo_Apply_Invert((Servo_Ch)ch, cur_angle);
         unsigned short pulse_us = 500 + ((unsigned short)eff_angle * 2000 / 180);
+        if (pulse_us < 500) pulse_us = 500;
+        if (pulse_us > 2500) pulse_us = 2500;
+
         TIM3_PWM_Set_Pulse((unsigned char)ch, pulse_us);
     }
 }

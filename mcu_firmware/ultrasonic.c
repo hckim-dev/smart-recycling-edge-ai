@@ -68,17 +68,19 @@ float Ultra_Read_cm(Ultra_Ch ch)
     t_start = (unsigned short)TIM4->CNT;
     while (!(GPIOC->IDR & (1U << echo)))
     {
-        if (Tim4_Elapsed_us(t_start) > 10000U) // 센서 무응답 대비 타임아웃
+        // 센서 무응답 대비 타임아웃: 2ms(2000us) 내 에코 시작 없으면 센서 미연결로 판단
+        if (Tim4_Elapsed_us(t_start) > 2000U)
         {
             return -1.0f;
         }
     }
 
     t_start = (unsigned short)TIM4->CNT;
-
     while (GPIOC->IDR & (1U << echo))
     {
-        if (Tim4_Elapsed_us(t_start) > 30000U) // 약 5m 범위 초과로 간주하고 포기
+        // 수거함 최대 깊이(40cm) 감안: 4ms(4000us, 약 68cm) 초과 시 사거리 초과로 조기 반환
+        // 고장/단선 시 루프 블로킹 시간을 최소화하여 서보 램프 및 UART 수신 지연 방어
+        if (Tim4_Elapsed_us(t_start) > 4000U)
         {
             return -1.0f;
         }
@@ -87,5 +89,11 @@ float Ultra_Read_cm(Ultra_Ch ch)
     pulse_us = Tim4_Elapsed_us(t_start);
 
     // 58은 음속 340m/s 기준 왕복거리 환산 관용 상수 (cm = us / 58)
-    return (float)pulse_us / 58.0f;
+    float dist_cm = (float)pulse_us / 58.0f;
+    if (dist_cm <= 0.0f || dist_cm > 60.0f)
+    {
+        return -1.0f; // 수거함 사거리(60cm) 초과 이상치 배제
+    }
+
+    return dist_cm;
 }
