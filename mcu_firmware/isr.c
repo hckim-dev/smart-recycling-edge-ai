@@ -32,11 +32,17 @@ void SysTick_Handler(void)
 // ISR을 짧게 유지하기 위해 main.c 루프로 미룸
 void USART2_IRQHandler(void)
 {
-	// DR 레지스터는 읽는 순간 RXNE 플래그가 같이 클리어됨(하드웨어 동작)
+	// SR 레지스터를 먼저 읽고 DR을 읽어야 ORE(Overrun Error), FE, NE 등의 하드웨어 락업이 클리어됨
+	volatile unsigned int sr = USART2->SR;
 	unsigned char ch = (unsigned char)(USART2->DR & 0xFF);
+	(void)sr;
 
 	// 메인 루프가 이전 줄을 아직 못 읽었으면 덮어쓰지 않고 그냥 버림
 	if (g_rx_line_ready)
+		return;
+
+	// 전원 인가 시의 노이즈 펄스나 비정상 글리치 문자 필터링 (버퍼 첫 글자는 출력 가능한 ASCII여야 함)
+	if (s_rx_idx == 0 && (ch < 32 || ch > 126))
 		return;
 
 	if (ch == '\r' || ch == '\n')
@@ -52,5 +58,9 @@ void USART2_IRQHandler(void)
 	{
 		g_rx_line[s_rx_idx++] = (char)ch;
 	}
-
+	else
+	{
+		// 개행 없이 버퍼가 꽉 찼으면 쓰레기 데이터 누적으로 판단하여 버퍼 리셋
+		s_rx_idx = 0;
+	}
 }

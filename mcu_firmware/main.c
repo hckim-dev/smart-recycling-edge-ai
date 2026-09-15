@@ -188,10 +188,15 @@ void Main(void)
     {
         if (g_rx_line_ready)
         {
-            if (g_rx_line[0] == '$')
-                Handle_Jetson_Command((const char *)g_rx_line);
+            const char *line = (const char *)g_rx_line;
+            const char *dollar = strchr(line, '$');
+
+            // 라인 내에 '$'가 존재하면 노이즈가 앞에 섞였더라도 Jetson 명령어로 안전 파싱
+            if (dollar != NULL)
+                Handle_Jetson_Command(dollar);
             else
-                Handle_Servo_Command((const char *)g_rx_line);
+                Handle_Servo_Command(line);
+
             g_rx_line_ready = 0;
         }
 

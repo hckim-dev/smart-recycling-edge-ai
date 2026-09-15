@@ -25,9 +25,8 @@ extern volatile unsigned long g_sys_tick;
 #define PAPERCAN_ANGLE_DEFAULT_PAPER  150
 #define PAPERCAN_ANGLE_CAN             50
 
-// 도어 서보 회전 속도(초당 각도) - 너무 빠르면 기구가 부러지는 문제로 낮춤.
-// 원래 "무제한 최고속"이었던 걸 체감상 60% 정도로 낮춘 값. 더 느리게/빠르게 원하면 이 숫자만 조절하면 됨.
-#define DOOR_SERVO_SPEED_DEG_PER_SEC 120
+// 도어 서보 회전 속도(초당 각도) - 돌입 전류(Inrush Current) 및 전압 강하(Brown-Out) 방지를 위해 완화
+#define DOOR_SERVO_SPEED_DEG_PER_SEC 70
 
 static volatile GateState s_gate_state = GATE_CLOSED;
 static volatile GateState s_gate_state_prev = GATE_CLOSED;
@@ -41,11 +40,12 @@ static RecycleType s_open_type = RECYCLE_NONE;
 static unsigned long s_gate_open_tick = 0;
 static volatile unsigned char s_close_requested = 0;
 
-// TOP 모터를 아래 두 모터보다 먼저/동시에 움직이지 않기 위한 대기 상태.
-// Recycle_Door_Open()은 아래 두 모터만 먼저 이동시키고, TOP은 여기 걸어만 둔다.
-// -> Recycle_Update()가 매 루프 아래 두 모터의 도착 여부를 확인해서 TOP을 나중에 출발시킴
+// [전류 피크 분산] 열릴 때: 하단 2축 도착 후 TOP 출발
+// [전류 피크 분산] 닫힐 때: TOP 완전히 닫힌 후 하단 2축 복귀
 static volatile unsigned char s_top_move_pending = 0;
+static volatile unsigned char s_bottom_close_pending = 0;
 static RecycleType s_pending_route_type = RECYCLE_NONE;
+
 
 // 품목의 그룹(종이/캔 vs 페트/비닐)에 따른 TOP 목표각
 static unsigned char Top_Angle_For(RecycleType type)
@@ -92,21 +92,28 @@ static void Set_Bottom_Route(RecycleType type)
     }
 }
 
-static void Set_Neutral(void)
-{
-    Servo_Set_Angle_Speed(TOP_CH, TOP_ANGLE_NEUTRAL, DOOR_SERVO_SPEED_DEG_PER_SEC);
-    Servo_Set_Angle_Speed(PETVINYL_CH, PETVINYL_ANGLE_DEFAULT_PET, DOOR_SERVO_SPEED_DEG_PER_SEC);
-    Servo_Set_Angle_Speed(PAPERCAN_CH, PAPERCAN_ANGLE_DEFAULT_PAPER, DOOR_SERVO_SPEED_DEG_PER_SEC);
-}
 
-// 전원 인가 직후 3모터를 기본 위치로 맞춰 상태 불일치를 방지
-// (부팅 시 초기 위치잡기는 굳이 천천히 갈 필요 없어 즉시이동 그대로 둠)
+
+// 전원 인가 직후 3모터를 시간차(Soft-Start)로 1개씩 기본 위치로 맞춰 전압 강하(Brown-Out) 방지
 void Recycle_Init(void)
 {
     Servo_Init();
 
+    // [전원 보호 소프트스타트] 3개 모터가 동시에 움직이면 피크 돌입전류(1.5A~2.5A)로 인해
+    // 5V 전압 강하(Brown-Out Reset)가 발생하므로, 200~250ms 간격으로 1개씩 순차 정렬한다.
+    Servo_Set_Angle(PETVINYL_CH, PETVINYL_ANGLE_DEFAULT_PET);
+    for (volatile unsigned long i = 0; i < 800000; i++);
+
+    Servo_Set_Angle(PAPERCAN_CH, PAPERCAN_ANGLE_DEFAULT_PAPER);
+    for (volatile unsigned long i = 0; i < 800000; i++);
+
+    Servo_Set_Angle(TOP_CH, TOP_ANGLE_NEUTRAL);
+    for (volatile unsigned long i = 0; i < 800000; i++);
+
     s_gate_state = GATE_CLOSED;
     s_gate_state_prev = s_gate_state;
+    s_top_move_pending = 0;
+    s_bottom_close_pending = 0;
 }
 
 // Jetson이 UART로 보내는 문자열 프로토콜과 내부 enum 사이의 경계 지점
@@ -130,6 +137,7 @@ void Recycle_Door_Open(RecycleType type)
         return;
     }
 
+    s_bottom_close_pending = 0; // 혹시 닫히던 중이면 닫힘 예약 취소
     Set_Bottom_Route(type);
 
     s_pending_route_type = type;
@@ -141,26 +149,38 @@ void Recycle_Door_Open(RecycleType type)
     s_close_requested = 0;
 }
 
-// 아래 두 모터가 목표각에 다 도착했을 때만 TOP_CH를 출발시킨다.
 // main 루프에서 Servo_Update() 직후 매번 호출되어야 함.
 void Recycle_Update(void)
 {
-    if (!s_top_move_pending)
+    // [순차 열림]: 아래 두 모터가 목표각에 다 도착했을 때만 TOP_CH(투입구)를 출발시킨다.
+    if (s_top_move_pending)
     {
-        return;
+        if (!Servo_Is_Moving(PAPERCAN_CH) && !Servo_Is_Moving(PETVINYL_CH))
+        {
+            Servo_Set_Angle_Speed(TOP_CH, Top_Angle_For(s_pending_route_type), DOOR_SERVO_SPEED_DEG_PER_SEC);
+            s_top_move_pending = 0;
+        }
     }
 
-    if (!Servo_Is_Moving(PAPERCAN_CH) && !Servo_Is_Moving(PETVINYL_CH))
+    // [순차 닫힘]: 상단 TOP 도어가 완전히 닫힌 후 하단 두 모터를 중립으로 복귀시킨다. (동시 구동 피크 방지)
+    if (s_bottom_close_pending)
     {
-        Servo_Set_Angle_Speed(TOP_CH, Top_Angle_For(s_pending_route_type), DOOR_SERVO_SPEED_DEG_PER_SEC);
-        s_top_move_pending = 0;
+        if (!Servo_Is_Moving(TOP_CH))
+        {
+            Servo_Set_Angle_Speed(PETVINYL_CH, PETVINYL_ANGLE_DEFAULT_PET, DOOR_SERVO_SPEED_DEG_PER_SEC);
+            Servo_Set_Angle_Speed(PAPERCAN_CH, PAPERCAN_ANGLE_DEFAULT_PAPER, DOOR_SERVO_SPEED_DEG_PER_SEC);
+            s_bottom_close_pending = 0;
+        }
     }
 }
 
 static void Do_Close(void)
 {
-    s_top_move_pending = 0; // 닫는 도중이면 TOP 지연 출발 예약은 취소 (Set_Neutral이 TOP도 즉시 되돌림)
-    Set_Neutral();
+    s_top_move_pending = 0; // 열림 도중이면 TOP 지연 출발 취소
+
+    // 1단계: 상단 투입구(TOP) 도어만 먼저 닫음 (사용자 안전 확보 및 전류 피크 50% 분산)
+    Servo_Set_Angle_Speed(TOP_CH, TOP_ANGLE_NEUTRAL, DOOR_SERVO_SPEED_DEG_PER_SEC);
+    s_bottom_close_pending = 1; // 2단계: TOP 도어 완전 닫힘 감지 후 하단 복귀 시작
     s_gate_state = GATE_CLOSED;
     s_open_type = RECYCLE_NONE;
     s_close_requested = 0;

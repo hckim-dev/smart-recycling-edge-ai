@@ -2,6 +2,7 @@
 
 import threading
 import time
+from contextlib import suppress
 
 import serial
 from serial import SerialException
@@ -63,7 +64,15 @@ class SerialController:
                 baudrate=self.baudrate,
                 timeout=self.timeout,
                 write_timeout=self.timeout,
+                dsrdtr=False,
+                rtscts=False,
             )
+            # 포트 오픈(DTR 토글) 직후 MCU 리셋 및 소프트스타트 완료까지 1.0초 대기
+            time.sleep(1.0)
+            with suppress(Exception):
+                self.ser.reset_input_buffer()
+                self.ser.reset_output_buffer()
+
             self.running = True
             self.rx_thread = threading.Thread(
                 target=self._rx_loop, name="SerialRxWorker", daemon=True
