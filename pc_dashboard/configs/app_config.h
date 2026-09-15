@@ -52,8 +52,8 @@ constexpr quint16 DEFAULT_BACKEND_PORT = 8000;
 constexpr int DEFAULT_BIN_ID = 1;
 
 // 비전 객체 인식 확정 판정 임계치
-constexpr int STABLE_FRAME_THRESHOLD = 45; // 30 FPS 기준 1.5초간 동일 클래스 유지 시 바운스 필터링 통과
-constexpr double MIN_CONFIDENCE_THRESHOLD = 0.65;
+constexpr int STABLE_FRAME_THRESHOLD = 25; // 동일 클래스 안정 인식 시 바운스 필터링 통과 기준 프레임 수
+constexpr double MIN_CONFIDENCE_THRESHOLD = 0.70; // 객체 검출 최소 신뢰도 하한선
 
 // 하드웨어 수거함 임계치 및 세션 타임아웃
 constexpr int MAX_BIN_CAPACITY = 100;
@@ -308,8 +308,8 @@ struct Detection {
         d.classId = obj.value(KEY_CLASS_ID).toInt();
         d.className = obj.value(KEY_CLASS_NAME).toString();
         d.confidence = obj.value(KEY_CONFIDENCE).toDouble();
-        d.category = Config::parseCategory(d.className);
-        // 1차: YOLO 모델 출력 인덱스(0: 페트, 1: 캔, 2: 종이, 3: 비닐) 기반 직접 매핑
+
+        // 1차: YOLO 모델 출력 인덱스(0: 종이, 1: 캔, 2: 페트, 3: 비닐) 기반 직접 매핑
         d.category = Config::modelIndexToCategory(d.classId);
 
         // 2차: 인덱스 매핑 실패 시 클래스명 문자열 기반 폴백 매핑

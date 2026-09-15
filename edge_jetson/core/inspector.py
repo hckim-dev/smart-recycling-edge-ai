@@ -39,7 +39,7 @@ class ClassifierInspector:
             except (RuntimeError, OSError, ValueError) as exc:
                 print(f"[INSPECTOR ERROR] [{self.cfg.task_id}] 엔진 로드 실패: {exc}")
         else:
-            # 모델 담당자가 아직 학습 중인 경우: 시스템 다운 없이 우아하게 바이패스 모드로 진입
+            # 특정 검사 모델 엔진 파일이 미배포된 환경에서도 전체 시스템 중단 없이 안전하게 바이패스(BYPASS) 처리
             print(
                 f"[INSPECTOR WARN] [{self.cfg.task_id}] 엔진 파일 없음 "
                 f"({self.cfg.engine_path.name}) -> 자동 바이패스(BYPASS) 모드로 안전 구동"

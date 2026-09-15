@@ -20,6 +20,7 @@ void RecycleSessionController::startSession(bool isMember, const QString& userNa
 
     m_consecutiveDetections = 0;
     m_lastCategory = RecycleCategory::UNKNOWN;
+    m_missCount = 0;
     m_itemCounted = false;
     m_doorWasOpen = false;
 
@@ -32,6 +33,7 @@ void RecycleSessionController::finishSession()
 {
     m_isActive = false;
     m_consecutiveDetections = 0;
+    m_missCount = 0;
     m_itemCounted = false;
     m_doorWasOpen = false;
     m_userId = -1;
@@ -42,6 +44,7 @@ void RecycleSessionController::cancelSession()
     m_isActive = false;
     m_summary.reset();
     m_consecutiveDetections = 0;
+    m_missCount = 0;
     m_itemCounted = false;
     m_doorWasOpen = false;
     m_userId = -1;
@@ -103,10 +106,18 @@ void RecycleSessionController::processFrameMetadata(const FrameMetadata& meta)
         m_consecutiveDetections = 0;
         m_lastCategory = RecycleCategory::UNKNOWN;
         m_itemCounted = false;
+        m_missCount = 0;
     }
 
     // 4. 검출 객체 부재 또는 미분류: 대기 상태 복귀
     if (!hasDetection || top.category == RecycleCategory::UNKNOWN) {
+        m_missCount++;
+        // 순간적인 프레임 드롭아웃(조명 반사, 모션 블러 등) 발생 시 UI 바운딩 박스 깜빡임(Flickering) 방지
+        if (m_missCount <= 3 && m_lastCategory != RecycleCategory::UNKNOWN) {
+            return;
+        }
+
+        m_missCount = 0;
         m_consecutiveDetections = 0;
         m_lastCategory = RecycleCategory::UNKNOWN;
 
@@ -114,6 +125,8 @@ void RecycleSessionController::processFrameMetadata(const FrameMetadata& meta)
         emit sigGuideBannerRequested(static_cast<int>(UITheme::Recycle::BannerType::READY), QString());
         return;
     }
+
+    m_missCount = 0;
 
     // 5. 2단계 세부 품질 검사 (라벨 부착, 오염 등) 불합격 여부 판정
     if (top.inspection.hasInspection && !top.inspection.passed) {
