@@ -5,7 +5,7 @@
 [![Platform](https://img.shields.io/badge/Platform-NVIDIA%20Jetson%20Orin%20Nano-76B900?logo=nvidia&logoColor=white)](https://www.nvidia.com/en-us/autonomous-machines/embedded-systems/jetson-orin/)
 [![JetPack](<https://img.shields.io/badge/JetPack-6.x%20(Ubuntu%2022.04)-green>)]()
 [![Inference](<https://img.shields.io/badge/TensorRT-10.x%20(V3%20Async)-blue>)]()
-[![Model](https://img.shields.io/badge/Model-YOLOv11s%20%2B%202--Stage%20Inspect-orange)]()
+[![Model](https://img.shields.io/badge/Model-YOLOv11n%20%2B%202--Stage%20Inspect-orange)]()
 [![CUDA](<https://img.shields.io/badge/CUDA-12.x%20(Pinned%20Mem)-76B900?logo=nvidia&logoColor=white>)]()
 [![Streaming](<https://img.shields.io/badge/Stream-TCP%20Binary%20(60%20FPS)-red>)]()
 
@@ -29,7 +29,7 @@ YOLOv11 TensorRT 10.x 초저지연 추론, PET 2단계 세부 품질 검사, 드
 ```mermaid
 flowchart LR
     CAM["Logitech C270 WebCam<br/>(USB V4L2 60 FPS Zero-Lag)"] --> PRE["C++ Preprocess<br/>(Letterbox 640x640)"]
-    PRE --> TRT1["1단계: YOLOv11s<br/>(TensorRT 10.x async_v3)"]
+    PRE --> TRT1["1단계: YOLOv11n<br/>(TensorRT 10.x async_v3)"]
     TRT1 --> NMS["OpenCV C++ NMS<br/>(conf=0.80, iou=0.45)"]
 
     NMS -->|일반 품목| FSM["AutoDoorController<br/>(FSM State Machine)"]
@@ -76,10 +76,10 @@ flowchart LR
 | --------------------- | ------------------------------------------------- | --------------------------------------- |
 | **Target Board**      | NVIDIA Jetson Orin Nano (8GB / 4GB)               | JetPack 6.x (Ubuntu 22.04 LTS)          |
 | **Inference Engine**  | NVIDIA TensorRT 10.x (`python3-libnvinfer`)       | FP16 고속 추론 모드                     |
-| **Deep Learning**     | YOLOv11s (Detection) + MobileNetV3 / EfficientNet | 4대 재활용품(종이, 캔, 페트, 비닐) 분류 |
+| **Deep Learning**     | YOLOv11n (Detection) + EfficientNet (라벨) + MobileNetV3 (오염) | 4대 재활용품(종이, 캔, 페트, 비닐) 분류 |
 | **추론 파라미터**     | `conf_threshold = 0.80`, `iou_threshold = 0.45`   | 오탐 차단 및 NMS 최적 균형값            |
 | **Camera Interface**  | Logitech C270 HD WebCam (USB V4L2 `/dev/video0`)  | 640x480 @ 60 FPS (MJPG)                 |
-| **Hardware I/O**      | UART (`/dev/ttyMCU`, 115200 bps)                  | STM32 ASCII 프로토콜 연동               |
+| **Hardware I/O**      | UART (`/dev/ttyACM0`, 115200 bps)                 | STM32 ASCII 프로토콜 연동               |
 | **Telemetry Network** | TCP Server (Port 9000, `TCP_NODELAY`)             | 관제 PC 60 FPS 영상/메타데이터 전송     |
 
 ---
@@ -124,10 +124,10 @@ pip install -r requirements.txt
 
 ### 2. 하드웨어 설정 및 모델 배치
 
-- **엔진 모델 배치**: TensorRT 직렬화 엔진(`recycle_detect_yolo11s.engine`, `pet_label_mobilenetv3.engine`, `pet_content_efficientnet.engine`)을 `models/` 디렉터리에 배치합니다.
+- **엔진 모델 배치**: TensorRT 직렬화 엔진(`recycle_detect_yolo11n.engine`, `pet_label_efficientnet.engine`, `pet_content_mobilenetv3.engine`)을 `models/` 디렉터리에 배치합니다.
 - **연동 파라미터 확인** ([`configs/config.py`](configs/config.py)):
   - 카메라: `CameraConfig(device_id=0, width=640, height=480, fps=60)`
-  - STM32 시리얼: `SerialConfig(port="/dev/ttyMCU", baudrate=115200)` _(MCU 미연결 시 자동 Mock 시뮬레이터로 안전 동작)_
+  - STM32 시리얼: `SerialConfig(port="/dev/ttyACM0", baudrate=115200)` _(MCU 미연결 시 자동 Mock 시뮬레이터로 안전 동작)_
   - TCP 스트리밍: `NetworkConfig(host="0.0.0.0", port=9000)`
 
 ### 3. 메인 파이프라인 실행
