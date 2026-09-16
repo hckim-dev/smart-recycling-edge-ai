@@ -135,7 +135,9 @@ class InspectionPipelineConfig:
             InspectionTaskConfig(
                 task_id="pet_label",
                 target_category=Category.PET,
-                engine_path=JETSON_ROOT_DIR / "models" / "pet_label_mobilenetv3.engine",
+                engine_path=JETSON_ROOT_DIR
+                / "models"
+                / "pet_label_efficientnet.engine",
                 input_shape=(224, 224),
                 threshold=0.50,
                 is_positive_fail=True,
@@ -148,7 +150,7 @@ class InspectionPipelineConfig:
                 target_category=Category.PET,
                 engine_path=JETSON_ROOT_DIR
                 / "models"
-                / "pet_content_efficientnet.engine",
+                / "pet_content_mobilenetv3.engine",
                 input_shape=(224, 224),
                 threshold=0.50,
                 is_positive_fail=True,
@@ -173,7 +175,7 @@ class NetworkConfig:
 class SerialConfig:
     """STM32 MCU UART 시리얼 통신 설정."""
 
-    port: str = "/dev/ttyMCU"
+    port: str = "/dev/ttyACM0"
     baudrate: int = 115200
     timeout: float = 0.1
     enabled: bool = True
