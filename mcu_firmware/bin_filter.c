@@ -161,8 +161,8 @@ float BinFilter_Update(BinType bin_idx, float raw_dist_cm, uint32_t current_tick
 
     BinFilter *bin = &s_bins[bin_idx];
 
-    /* 투입 진행 중 낙하 중 센서 가림 현상 무시 -> 2초동안 이전 값 리턴*/
-    if (current_tick_ms < bin->blanking_until_tick)
+    /* 투입 진행 중 낙하 중 센서 가림 현상 무시 -> 2초동안 이전 값 리턴 (32비트 틱 롤오버 안전 차분 연산) */
+    if ((int32_t)(current_tick_ms - bin->blanking_until_tick) < 0)
     {
         return bin->filtered_percent; // 이전 상태 그대로 유지
     }

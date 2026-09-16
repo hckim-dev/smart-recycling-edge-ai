@@ -5,7 +5,7 @@
 [![Platform](https://img.shields.io/badge/Platform-NVIDIA%20Jetson%20Orin%20Nano-76B900?logo=nvidia&logoColor=white)](https://www.nvidia.com/en-us/autonomous-machines/embedded-systems/jetson-orin/)
 [![MCU](<https://img.shields.io/badge/MCU-STM32F411xE%20(Cortex--M4)-03234B?logo=stmicroelectronics&logoColor=white>)](https://www.st.com)
 [![AI Engine](<https://img.shields.io/badge/Inference-TensorRT%2010%20(FP16)-76B900?logo=nvidia&logoColor=white>)]()
-[![Dashboard](https://img.shields.io/badge/Kiosk-Qt%206%20%2F%20C%2B%2B-41CD52?logo=qt&logoColor=white)](https://www.qt.io)
+[![Dashboard](<https://img.shields.io/badge/Kiosk-Qt%205.15%20(Qt%206%20호환)-41CD52?logo=qt&logoColor=white>)](https://www.qt.io)
 [![Backend](https://img.shields.io/badge/Backend-FastAPI%20%2F%20SQLite%20WAL-009688?logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com)
 [![Mobile](<https://img.shields.io/badge/Mobile-Android%20(Compose%20%2B%20MVI)-3DDC84?logo=android&logoColor=white>)](https://developer.android.com)
 
@@ -41,7 +41,7 @@ flowchart TB
         SERVER["FastAPI 서버 (포트 8000)<br/>• 1:1 WebSocket 세션 브로커<br/>• SQLite WAL 원자적 트랜잭션<br/>• 포인트/탄소저감 정산"]
     end
 
-    subgraph KioskUI["🖥️ 키오스크 대시보드 (Qt 6 / C++)"]
+    subgraph KioskUI["🖥️ 키오스크 대시보드 (Qt 5.15 / C++)"]
         QT["Qt Kiosk UI<br/>• 60 FPS 바이너리 TCP 파서<br/>• Rising Edge 도어 인터록 카운팅<br/>• 2단계 품질 경고 오버레이"]
     end
 
@@ -71,13 +71,13 @@ flowchart TB
 
 ## 🧩 서브시스템별 핵심 엔지니어링 특징 (The 5 Pillars)
 
-| 서브시스템                       | 기술 스택                                           | 핵심 역할 및 엔지니어링 하이라이트                                                                                                                                                                           |            세부 문서             |
-| :------------------------------- | :-------------------------------------------------- | :----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :------------------------------: |
-| **[edge_jetson](edge_jetson)**   | Jetson Orin Nano, TensorRT 10, CUDA, OpenCV         | • TensorRT V3 비동기 Host Pinned Zero-Alloc 파이프라인<br/>• 2-Stage Crop & Inspection (오염·라벨) 및 Fallback Graceful Bypass<br/>• 드롭아웃 프레임 보존 FSM (`miss_tolerance: 3`, `conf: 0.70`)            | [README](edge_jetson/README.md)  |
-| **[mcu_firmware](mcu_firmware)** | STM32F411xE, Cortex-M4 Hard FPU, C (Bare-Metal)     | • 오투입 방지 물리 순차 인터록 (하단 2축 도착 확인 후 상단 개방)<br/>• 3단계 초음파 필터 (Drop Blanking ➔ Outlier Rejection ➔ Deadband)<br/>• 120°/s 소프트웨어 램프 구동 및 10s 자동 폐쇄 Failsafe          | [README](mcu_firmware/README.md) |
-| **[pc_dashboard](pc_dashboard)** | Qt 6, C++17, QPainter, QWebSocket, QTcpSocket       | • 60 FPS 바이너리 TCP 스트림 역직렬화 (Magic Byte & 메모리 재사용)<br/>• 도어 개방 Rising Edge 물리 인터록 카운팅 (영상 중복 카운트 방어)<br/>• 2단계 품질 경고 오버레이 및 키오스크 시연 모드 (`F11`/`Esc`) | [README](pc_dashboard/README.md) |
-| **[server](server)**             | FastAPI, Python 3.10+, aiosqlite (WAL), Pydantic V2 | • Clean 3-Tier 계층 분리 및 논블로킹 비동기 DB I/O<br/>• SQLite 원자적 `RETURNING` 트랜잭션 (Lost Update & Double Spending 방어)<br/>• `ConnectionManager` 1:1 룸 관리 및 좀비 WebSocket 세션 퇴출           |    [README](server/README.md)    |
-| **[mobile_app](mobile_app)**     | Android, Kotlin 2.x, Jetpack Compose, OkHttp, KSP   | • Clean Architecture & 단방향 데이터 흐름(MVI/UDF) 패턴<br/>• 지수 백오프(Exponential Backoff) 자동 재연결 WebSocket 클라이언트<br/>• 미인증 딥링크 보류 바인딩 UX (Hold-and-Bind Session)                   |  [README](mobile_app/README.md)  |
+| 서브시스템                       | 기술 스택                                                    | 핵심 역할 및 엔지니어링 하이라이트                                                                                                                                                                           |            세부 문서             |
+| :------------------------------- | :----------------------------------------------------------- | :----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :------------------------------: |
+| **[edge_jetson](edge_jetson)**   | Jetson Orin Nano, TensorRT 10, CUDA, OpenCV                  | • TensorRT V3 비동기 Host Pinned Zero-Alloc 파이프라인<br/>• 2-Stage Crop & Inspection (오염·라벨) 및 Fallback Graceful Bypass<br/>• 드롭아웃 프레임 보존 FSM (`miss_tolerance: 3`, `conf: 0.70`)            | [README](edge_jetson/README.md)  |
+| **[mcu_firmware](mcu_firmware)** | STM32F411xE, Cortex-M4 Hard FPU, C (Bare-Metal)              | • 오투입 방지 물리 순차 인터록 (하단 2축 도착 확인 후 상단 개방)<br/>• 3단계 초음파 필터 (Drop Blanking ➔ Outlier Rejection ➔ Deadband)<br/>• 120°/s 소프트웨어 램프 구동 및 10s 자동 폐쇄 Failsafe          | [README](mcu_firmware/README.md) |
+| **[pc_dashboard](pc_dashboard)** | Qt 5.15 (Qt 6 호환), C++17, QPainter, QWebSocket, QTcpSocket | • 60 FPS 바이너리 TCP 스트림 역직렬화 (Magic Byte & 메모리 재사용)<br/>• 도어 개방 Rising Edge 물리 인터록 카운팅 (영상 중복 카운트 방어)<br/>• 2단계 품질 경고 오버레이 및 키오스크 시연 모드 (`F11`/`Esc`) | [README](pc_dashboard/README.md) |
+| **[server](server)**             | FastAPI, Python 3.10+, aiosqlite (WAL), Pydantic V2          | • Clean 3-Tier 계층 분리 및 논블로킹 비동기 DB I/O<br/>• SQLite 원자적 `RETURNING` 트랜잭션 (Lost Update & Double Spending 방어)<br/>• `ConnectionManager` 1:1 룸 관리 및 좀비 WebSocket 세션 퇴출           |    [README](server/README.md)    |
+| **[mobile_app](mobile_app)**     | Android, Kotlin 2.x, Jetpack Compose, OkHttp, KSP            | • Clean Architecture & 단방향 데이터 흐름(MVI/UDF) 패턴<br/>• 지수 백오프(Exponential Backoff) 자동 재연결 WebSocket 클라이언트<br/>• 미인증 딥링크 보류 바인딩 UX (Hold-and-Bind Session)                   |  [README](mobile_app/README.md)  |
 
 ---
 
@@ -201,15 +201,15 @@ cd mobile_app
 smart-recycling-edge-ai/
 ├── edge_jetson/             # NVIDIA Jetson Orin Nano TensorRT 10 엣지 AI
 │   ├── configs/             # AI 모델, 카메라, 시리얼, TCP 소켓 설정
-│   ├── core/                # 2-Stage 검사기, FSM 컨트롤러, 시리얼 프로토콜
-│   └── inference/           # TensorRT 10 비동기 추론 엔진 래퍼
+│   ├── core/                # 2-Stage 검사기, FSM 도어 컨트롤러, TRT 엔진
+│   └── stream/              # 60 FPS Binary TCP 소켓 서버 및 UART 컨트롤러
 ├── mcu_firmware/            # STM32F411xE 베어메탈 펌웨어
 │   ├── recycle.c            # 3축 모터 순차 인터록 및 도어 FSM
 │   ├── bin_filter.c         # 3단계 초음파 적재율 필터링 알고리즘
 │   └── servo.c              # 120°/s 소프트웨어 각속도 램프 제어
-├── pc_dashboard/            # Qt 6 / C++ 키오스크 GUI 애플리케이션
-│   ├── src/network/         # 60 FPS Binary TCP 스트림 언패커 & WebSocket 클라이언트
-│   ├── src/ui/              # QPainter 렌더러, 품질 경고 오버레이, F11 풀스크린
+├── pc_dashboard/            # Qt 5.15 (Qt 6 호환) / C++ 키오스크 GUI 애플리케이션
+│   ├── network/             # 60 FPS Binary TCP 스트림 언패커 & WebSocket 클라이언트
+│   ├── ui/                  # QPainter 렌더러, 품질 경고 오버레이, F11 풀스크린
 │   └── pc_dashboard.pro     # Qt 빌드 설정 파일
 ├── server/                  # FastAPI 중앙 관리 및 포인트 정산 백엔드
 │   ├── app/routers/         # REST API 및 WebSocket 엔드포인트
@@ -219,8 +219,21 @@ smart-recycling-edge-ai/
 │   ├── app/src/main/        # Clean Architecture 레이어 (Data, Domain, Presentation)
 │   └── build.gradle.kts     # Kotlin 2.x & Compose 빌드 명세
 ├── docs/                    # 아키텍처 다이어그램 및 설계 기술 문서
+│   ├── protocol-spec.md     # 5대 서브시스템 통합 통신 프로토콜 명세서
+│   ├── troubleshooting.md   # 임베디드 & 엣지 시스템 트러블슈팅 및 신뢰성 보고서
+│   └── network-streaming.md # 60 FPS 저지연 바이너리 스트리밍 성능 최적화 보고서
 └── README.md                # 메인 통합 문서 (본 파일)
 ```
+
+---
+
+## 📚 심층 기술 문서 (Deep-Dive Documents)
+
+시스템 아키텍처 및 세부 엔지니어링 구현 과정은 아래 심층 문서에서 확인할 수 있습니다.
+
+- 📡 [**통합 통신 프로토콜 명세서 (Protocol Specification)**](docs/protocol-spec.md): Jetson-Qt Binary TCP, Jetson-MCU UART, Server WebSocket 및 REST API 4개 계층 통신 규격
+- 🛠️ [**임베디드 & 엣지 트러블슈팅 보고서 (Troubleshooting & Reliability)**](docs/troubleshooting.md): 서보 돌입 전류 BOR 방지, Linux DTR 리셋 방어, 초음파 센서 85% 블로킹 감축, UART ORE 하드웨어 락업 해결기
+- ⚡ [**60 FPS 네트워크 스트리밍 성능 최적화 (Network Streaming Optimization)**](docs/network-streaming.md): X11 포워딩 병목 극복, 8B 바이너리 헤더 패킷화 및 프레임당 14.1ms 초저지연 달성 과정
 
 ---
 

@@ -140,12 +140,12 @@ static void Handle_Jetson_Command(const char *line)
 
         printf("Door open -> %s\n", type_str);
     }
-    else if (strcmp(line, "$DOOR_CLOSE") == 0)
+    else if (strncmp(line, "$DOOR_CLOSE", 11) == 0)
     {
         Recycle_Door_Close_Request();
         printf("$DOOR_CLOSE received\n");
     }
-    else if (strcmp(line, "$BIN_RESET") == 0)
+    else if (strncmp(line, "$BIN_RESET", 10) == 0)
     {
         // 젯슨 쪽에서도 필요하면 언제든 4개 통 적재율 전부 0%로 리셋 가능
         BinFilter_Reset_All();
@@ -185,10 +185,15 @@ void Main(void)
     {
         if (g_rx_line_ready)
         {
-            if (g_rx_line[0] == '$')
-                Handle_Jetson_Command((const char *)g_rx_line);
+            const char *line = (const char *)g_rx_line;
+            const char *dollar = strchr(line, '$');
+
+            // 라인 내에 '$'가 존재하면 노이즈가 앞에 섞였더라도 Jetson 명령어로 안전 파싱
+            if (dollar != NULL)
+                Handle_Jetson_Command(dollar);
             else
-                Handle_Servo_Command((const char *)g_rx_line);
+                Handle_Servo_Command(line);
+
             g_rx_line_ready = 0;
         }
 
