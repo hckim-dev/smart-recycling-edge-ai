@@ -72,15 +72,15 @@ flowchart LR
 
 ## 💻 엣지 런타임 사양 (Specifications)
 
-| 항목                  | 사양 및 환경                                      | 비고                                    |
-| --------------------- | ------------------------------------------------- | --------------------------------------- |
-| **Target Board**      | NVIDIA Jetson Orin Nano (8GB / 4GB)               | JetPack 6.x (Ubuntu 22.04 LTS)          |
-| **Inference Engine**  | NVIDIA TensorRT 10.x (`python3-libnvinfer`)       | FP16 고속 추론 모드                     |
+| 항목                  | 사양 및 환경                                                    | 비고                                    |
+| --------------------- | --------------------------------------------------------------- | --------------------------------------- |
+| **Target Board**      | NVIDIA Jetson Orin Nano (8GB / 4GB)                             | JetPack 6.x (Ubuntu 22.04 LTS)          |
+| **Inference Engine**  | NVIDIA TensorRT 10.x (`python3-libnvinfer`)                     | FP16 고속 추론 모드                     |
 | **Deep Learning**     | YOLOv11n (Detection) + EfficientNet (라벨) + MobileNetV3 (오염) | 4대 재활용품(종이, 캔, 페트, 비닐) 분류 |
-| **추론 파라미터**     | `conf_threshold = 0.80`, `iou_threshold = 0.45`   | 오탐 차단 및 NMS 최적 균형값            |
-| **Camera Interface**  | Logitech C270 HD WebCam (USB V4L2 `/dev/video0`)  | 640x480 @ 60 FPS (MJPG)                 |
-| **Hardware I/O**      | UART (`/dev/ttyACM0`, 115200 bps)                 | STM32 ASCII 프로토콜 연동               |
-| **Telemetry Network** | TCP Server (Port 9000, `TCP_NODELAY`)             | 관제 PC 60 FPS 영상/메타데이터 전송     |
+| **추론 파라미터**     | `conf_threshold = 0.80`, `iou_threshold = 0.45`                 | 오탐 차단 및 NMS 최적 균형값            |
+| **Camera Interface**  | Logitech C270 HD WebCam (USB V4L2 `/dev/video0`)                | 640x480 @ 60 FPS (MJPG)                 |
+| **Hardware I/O**      | UART (`/dev/ttyACM0`, 115200 bps)                               | STM32 ASCII 프로토콜 연동               |
+| **Telemetry Network** | TCP Server (Port 9000, `TCP_NODELAY`)                           | 관제 PC 60 FPS 영상/메타데이터 전송     |
 
 ---
 
@@ -125,6 +125,14 @@ pip install -r requirements.txt
 ### 2. 하드웨어 설정 및 모델 배치
 
 - **엔진 모델 배치**: TensorRT 직렬화 엔진(`recycle_detect_yolo11n.engine`, `pet_label_efficientnet.engine`, `pet_content_mobilenetv3.engine`)을 `models/` 디렉터리에 배치합니다.
+- **STM32 시리얼 포트(/dev/ttyACM0) 영구 권한 설정**:  
+  리눅스 기본 권한(`0660 root:dialout`)으로 인한 `Permission denied`를 방지하고 재부팅/재연결 시에도 권한이 유지되도록 udev 규칙을 1회 등록합니다:
+  ```bash
+  # ttyACM 장치 0666 자동 권한 부여 udev 규칙 등록 및 즉시 적용
+  echo 'KERNEL=="ttyACM*", MODE="0666"' | sudo tee /etc/udev/rules.d/99-ttyacm.rules
+  sudo udevadm control --reload-rules && sudo udevadm trigger
+  sudo usermod -aG dialout $USER
+  ```
 - **연동 파라미터 확인** ([`configs/config.py`](configs/config.py)):
   - 카메라: `CameraConfig(device_id=0, width=640, height=480, fps=60)`
   - STM32 시리얼: `SerialConfig(port="/dev/ttyACM0", baudrate=115200)` _(MCU 미연결 시 자동 Mock 시뮬레이터로 안전 동작)_

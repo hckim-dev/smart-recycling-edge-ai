@@ -163,7 +163,12 @@ cd edge_jetson
 source .venv/bin/activate
 pip install -r requirements.txt
 
-# 2. 메인 AI 파이프라인 실행
+# 2. STM32 시리얼 포트(/dev/ttyACM0) 영구 권한 1회 설정 (Permission Denied 방어)
+echo 'KERNEL=="ttyACM*", MODE="0666"' | sudo tee /etc/udev/rules.d/99-ttyacm.rules
+sudo udevadm control --reload-rules && sudo udevadm trigger
+sudo usermod -aG dialout $USER
+
+# 3. 메인 AI 파이프라인 실행
 python3 main.py
 ```
 
@@ -256,7 +261,7 @@ smart-recycling-edge-ai/
 
 - 📄 [**최종 프로젝트 결과보고서 (Final Presentation Report)**](docs/presentation/smart_recycling_final_report.pdf): 하드웨어 기구 설계, 8종 AI 모델 벤치마크, 2-Stage 정밀도 및 시연 평가 총괄 리포트 (PDF)
 - 📡 [**통합 통신 프로토콜 명세서 (Protocol Specification)**](docs/protocol-spec.md): Jetson-Qt Binary TCP, Jetson-MCU UART, Server WebSocket 및 REST API 4개 계층 통신 규격
-- 🛠️ [**임베디드 & 엣지 트러블슈팅 보고서 (Troubleshooting & Reliability)**](docs/troubleshooting.md): 서보 돌입 전류 BOR 방지, Linux DTR 리셋 방어, 초음파 센서 85% 블로킹 감축, UART ORE 하드웨어 락업 해결기
+- 🛠️ [**임베디드 & 엣지 트러블슈팅 보고서 (Troubleshooting & Reliability)**](docs/troubleshooting.md): 서보 돌입 전류 BOR 방지, Linux DTR 리셋 방어, 초음파 센서 85% 블로킹 감축, UART ORE 락업 및 udev 시리얼 권한 영구화 해결기
 - ⚡ [**60 FPS 네트워크 스트리밍 성능 최적화 (Network Streaming Optimization)**](docs/network-streaming.md): X11 포워딩 병목 극복, 8B 바이너리 헤더 패킷화 및 프레임당 14.1ms 초저지연 달성 과정
 
 ---
