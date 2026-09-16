@@ -2,26 +2,21 @@
 #include "ultrasonic.h"
 #include <stdio.h>
 
-// 4채널이 TIM4 프리런 카운터 하나를 공유 - 완전 동시측정은 아니고 순차 측정
-// (동시측정 필요하면 4개 EXTI 인터럽트로 재설계해야 함)
-// CH1은 PC0/PC1에서 값이 튀는 문제가 있어 PC9/PC12로 이전함
+
 static const unsigned char TRIG_PIN[ULTRA_COUNT] = {2, 9, 4, 10};
 static const unsigned char ECHO_PIN[ULTRA_COUNT] = {3, 12, 5, 11};
 
-// TIM4는 16비트라 unsigned short 뺄셈으로 계산해야 롤오버(0xFFFF->0) 구간도 정확함
 static inline unsigned short Tim4_Elapsed_us(unsigned short start)
 {
     return (unsigned short)((unsigned short)TIM4->CNT - start);
 }
 
-// TIM4가 1us마다 증가하도록 세팅돼 있어 busy-wait만으로 정확한 us 지연이 가능
 static void Delay_us(unsigned int us)
 {
     unsigned short start = (unsigned short)TIM4->CNT;
     while (Tim4_Elapsed_us(start) < us);
 }
 
-// Trig/Echo 4채널 GPIO + 공유 TIM4 카운터를 한 번에 세팅 - main.c에서 부팅 시 1회 호출
 void Ultra_Init(void)
 {
 
@@ -40,8 +35,6 @@ void Ultra_Init(void)
         Macro_Write_Block(GPIOC->PUPDR, 0x3, 0x2, echo * 2);
     }
 
-    // TIM4는 원래 시스템 틱 용도로 안 쓰여서 재활용 - 1us 프리런 카운터로 세팅
-    // (SysTick은 1ms 단위라 echo 펄스폭 재기엔 너무 성김)
     Macro_Set_Bit(RCC->APB1ENR, 2U);
     TIM4->PSC = (unsigned int)(TIMXCLK / 1000000.0 + 0.5) - 1U;
     TIM4->ARR = 0xFFFFU;
@@ -50,7 +43,7 @@ void Ultra_Init(void)
     Macro_Set_Bit(TIM4->CR1, 0U);
 }
 
-// Trig 펄스 -> Echo 대기 -> 펄스폭 측정까지 한 채널을 동기식으로 끝까지 처리
+
 float Ultra_Read_cm(Ultra_Ch ch)
 {
     if (ch >= ULTRA_COUNT) return -1.0f;
@@ -68,7 +61,7 @@ float Ultra_Read_cm(Ultra_Ch ch)
     t_start = (unsigned short)TIM4->CNT;
     while (!(GPIOC->IDR & (1U << echo)))
     {
-        if (Tim4_Elapsed_us(t_start) > 10000U) // 센서 무응답 대비 타임아웃
+        if (Tim4_Elapsed_us(t_start) > 10000U) 
         {
             return -1.0f;
         }
@@ -78,7 +71,7 @@ float Ultra_Read_cm(Ultra_Ch ch)
 
     while (GPIOC->IDR & (1U << echo))
     {
-        if (Tim4_Elapsed_us(t_start) > 30000U) // 약 5m 범위 초과로 간주하고 포기
+        if (Tim4_Elapsed_us(t_start) > 30000U) 
         {
             return -1.0f;
         }

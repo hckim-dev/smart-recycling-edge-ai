@@ -16,9 +16,7 @@ extern volatile unsigned long g_sys_tick;
 extern volatile char g_rx_line[RX_LINE_BUF_SIZE];
 extern volatile unsigned char g_rx_line_ready;
 
-// UART1(디버그 전용, PA9=TX)로만 나가는 로그. printf()는 UART2(Jetson 프로토콜)로
-// 나가므로 절대 섞이지 않는다. isr.c / recycle.c 등 device_driver.h를 include하는
-// 어디서든 바로 호출 가능.
+
 void Dbg_Log(const char *fmt, ...)
 {
     char buf[64];
@@ -38,8 +36,7 @@ static void Sys_Init(int baud)
     setvbuf(stdout, NULL, _IONBF, 0);
 }
 
-// 사람이 ComPortMaster 등으로 직접 테스트할 때 쓰는 디버그 명령 경로
-// (Jetson 프로토콜인 $DOOR_OPEN 등과는 별개 - Main()에서 '$' 여부로 갈라짐)
+
 static void Handle_Servo_Command(const char *line)
 {
     // "reset" 한 줄 입력하면 4개 통 적재율 전부 0%로 수동 리셋
