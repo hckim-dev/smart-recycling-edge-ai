@@ -14,7 +14,7 @@ YOLOv11 TensorRT 10.x 초저지연 추론, PET 2단계 세부 품질 검사, 드
 
 <br/>
 
-[![Live Inference Demo](../docs/assets/demo/demo_preview.gif)](../docs/assets/demo/demo_preview.gif)
+<img src="../docs/assets/demo/demo_preview.gif" width="700" alt="Live Inference Demo"/>
 
 <p><em>[Jetson Orin Nano 실시간 3채널 비전 AI 추론 및 초저지연 바이너리 스트리밍 시연]</em></p>
 

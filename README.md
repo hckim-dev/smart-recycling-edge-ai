@@ -14,7 +14,7 @@
 
 <br/>
 
-[![Demo Preview](docs/assets/demo/demo_preview.gif)](docs/assets/demo/demo_preview.gif)
+<img src="docs/assets/demo/demo_preview.gif" width="720" alt="Demo Preview"/>
 
 <br/>
 
