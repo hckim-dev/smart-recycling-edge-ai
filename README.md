@@ -218,19 +218,23 @@ smart-recycling-edge-ai/
 ├── mobile_app/              # Android 모바일 클라이언트 (Jetpack Compose)
 │   ├── app/src/main/        # Clean Architecture 레이어 (Data, Domain, Presentation)
 │   └── build.gradle.kts     # Kotlin 2.x & Compose 빌드 명세
-├── docs/                    # 아키텍처 다이어그램 및 설계 기술 문서
+├── docs/                    # 종합 문서 센터 및 시연 에셋
+│   ├── assets/              # 시연 GIF(demo) 및 키오스크·모바일 UI 에셋(images)
+│   ├── presentation/        # 최종 프로젝트 결과보고서 (PDF)
 │   ├── protocol-spec.md     # 5대 서브시스템 통합 통신 프로토콜 명세서
 │   ├── troubleshooting.md   # 임베디드 & 엣지 시스템 트러블슈팅 및 신뢰성 보고서
-│   └── network-streaming.md # 60 FPS 저지연 바이너리 스트리밍 성능 최적화 보고서
+│   ├── network-streaming.md # 60 FPS 저지연 바이너리 스트리밍 성능 최적화 보고서
+│   └── README.md            # 문서 센터 메인 인덱스
 └── README.md                # 메인 통합 문서 (본 파일)
 ```
 
 ---
 
-## 📚 심층 기술 문서 (Deep-Dive Documents)
+## 📚 심층 기술 문서 및 보고서 (Documents & Reports)
 
 시스템 아키텍처 및 세부 엔지니어링 구현 과정은 아래 심층 문서에서 확인할 수 있습니다.
 
+- 📄 [**최종 프로젝트 결과보고서 (Final Presentation Report)**](docs/presentation/smart_recycling_final_report.pdf): 하드웨어 기구 설계, 8종 AI 모델 벤치마크, 2-Stage 정밀도 및 시연 평가 총괄 리포트 (PDF)
 - 📡 [**통합 통신 프로토콜 명세서 (Protocol Specification)**](docs/protocol-spec.md): Jetson-Qt Binary TCP, Jetson-MCU UART, Server WebSocket 및 REST API 4개 계층 통신 규격
 - 🛠️ [**임베디드 & 엣지 트러블슈팅 보고서 (Troubleshooting & Reliability)**](docs/troubleshooting.md): 서보 돌입 전류 BOR 방지, Linux DTR 리셋 방어, 초음파 센서 85% 블로킹 감축, UART ORE 하드웨어 락업 해결기
 - ⚡ [**60 FPS 네트워크 스트리밍 성능 최적화 (Network Streaming Optimization)**](docs/network-streaming.md): X11 포워딩 병목 극복, 8B 바이너리 헤더 패킷화 및 프레임당 14.1ms 초저지연 달성 과정
