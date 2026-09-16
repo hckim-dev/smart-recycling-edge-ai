@@ -4,6 +4,14 @@
 
 ---
 
+<div align="center">
+
+[![Final Report](https://img.shields.io/badge/PDF-최종_결과보고서_다운로드-blue?style=for-the-badge&logo=adobeacrobatreader&logoColor=white)](presentation/smart_recycling_final_report.pdf)
+
+</div>
+
+---
+
 ## 📑 프로젝트 최종 보고서 (Final Report & Presentation)
 
 프로젝트 기획 배경, 하드웨어 기구 설계, 비전 AI 모델 벤치마크 및 시연 평가 결과를 총괄 정리한 공식 리포트입니다.
@@ -23,23 +31,28 @@
 
 ---
 
-## 🎬 시스템 시연 및 UI 갤러리 (Assets)
+## 🎬 시스템 시연 및 UI 갤러리 (Assets Gallery)
 
 ### 1. 실시간 3채널 멀티캠 데모 (`assets/demo/`)
 
-- 🎥 [**시연 프리뷰 GIF**](assets/demo/demo_preview.gif): 엣지 디바이스 추론 ➔ 실시간 패킷 전송 ➔ 키오스크 화면 렌더링 파이프라인
+<div align="center">
+  <img src="assets/demo/demo_preview.gif" width="600" alt="Demo Preview"/>
+  <p><em>[NVIDIA Jetson 엣지 디바이스 ➔ 바이너리 TCP 패킷 전송 ➔ Qt 키오스크 렌더링 파이프라인]</em></p>
+</div>
 
 ### 2. 하드웨어 및 키오스크 UI (`assets/images/`)
 
-- `hardware_kiosk.jpg`: 4채널 초음파 수거함 및 서보 분류 기구물 실물 사진
-- `kiosk_detect_pass.png`: 정상 배출 품목 검출 및 투입구 개방 UI
-- `kiosk_inspect_label_warning.png`: 라벨 미제거 1차 품질 경고 오버레이
-- `kiosk_inspect_stain_warning.png`: 내부 오염·이물질 2차 품질 경고 오버레이
+|                      🤖 키오스크 기구 & 초음파 센서                      |                          🖥️ AI 정상 검출 & 도어 개방                           |                              ⚠️ 라벨/오염 검사 경고 오버레이                               |
+| :----------------------------------------------------------------------: | :----------------------------------------------------------------------------: | :----------------------------------------------------------------------------------------: |
+| <img src="assets/images/hardware_kiosk.jpg" width="260" alt="Hardware"/> | <img src="assets/images/kiosk_detect_pass.png" width="260" alt="Detect Pass"/> | <img src="assets/images/kiosk_inspect_label_warning.png" width="260" alt="Label Warning"/> |
+|                       **4구역 적재함 & 서보 3축**                        |                          **녹색 BBox 및 투입구 개방**                          |                               **라벨 미제거 1차 품질 경고**                                |
 
-### 3. 모바일 앱 사용자 플로우 (`assets/images/`)
+### 3. 모바일 앱 주요 화면 플로우 (`assets/images/`)
 
-- `mobile_01_login.png` ➔ `mobile_02_home.png` ➔ `mobile_03_qr_scan.png` ➔ `mobile_04_kiosk_connected.png`
-- `mobile_05_recycle_complete.png` ➔ `mobile_06_history.png` ➔ `mobile_07_shop.png` ➔ `mobile_08_coupon_detail.png` ➔ `mobile_09_mypage.png`
+|                             📱 간편 로그인                             |                           📱 메인 홈 화면                            |                           📱 1초 QR 바인딩                            |                                 📱 실시간 배출 정산                                  |
+| :--------------------------------------------------------------------: | :------------------------------------------------------------------: | :-------------------------------------------------------------------: | :----------------------------------------------------------------------------------: |
+| <img src="assets/images/mobile_01_login.png" width="200" alt="Login"/> | <img src="assets/images/mobile_02_home.png" width="200" alt="Home"/> | <img src="assets/images/mobile_03_qr_scan.png" width="200" alt="QR"/> | <img src="assets/images/mobile_05_recycle_complete.png" width="200" alt="Complete"/> |
+|                       **휴대폰 번호 간편 인증**                        |                      **탄소 절감 & 식수 지표**                       |                        **CameraX 초고속 스캔**                        |                               **WebSocket 즉시 통보**                                |
 
 ---
 

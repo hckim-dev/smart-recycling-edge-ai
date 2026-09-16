@@ -137,7 +137,7 @@ flowchart LR
 ```mermaid
 sequenceDiagram
     autonumber
-    participant Camera as CSI Camera
+    participant Camera as USB WebCam (Logitech C270)
     participant Jetson as Jetson Orin (Edge AI)
     participant MCU as STM32F411 (Actuator)
     participant Kiosk as Qt Kiosk UI

@@ -47,6 +47,21 @@ flowchart TD
 
 ---
 
+## 📷 키오스크 하드웨어 기구 및 센서 구성 (Hardware & Sensor Setup)
+
+<div align="center">
+  <img src="../docs/assets/images/hardware_kiosk.jpg" width="520" alt="Hardware Kiosk"/>
+  <p><em>[키오스크 4구역 분리 수거함 및 초음파 센서 계측 하드웨어 실물]</em></p>
+</div>
+
+- **4구역 독립 적재함 (PET / CAN / PAPER / VINYL)**: 각 수거함 상단에 초음파 센서(HC-SR04) 4채널이 독립 배치되어 실시간 수위를 계측합니다.
+- **2단 3축 서보 분류 기구물 (TIM3 PWM)**:
+  - **상단 (TOP)**: 투입구 개폐 플랩 (PC6)
+  - **하단 좌/우 (LOWER)**: PET ↔ VINYL 분배 가이드 (PC7), PAPER ↔ CAN 분배 가이드 (PC8)
+- **순차 인터록 연동**: 하단 분배 서보가 목표 각도에 완전히 안착(`Servo_Is_Moving() == false`)된 후 상단 도어를 개방하여 기계적 오분류 결함을 원천 방지합니다.
+
+---
+
 ## ⚡ Engineering Highlights
 
 ### 1. 오투입 방지 물리 순차 인터록 (Sequential Interlock)

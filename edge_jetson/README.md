@@ -12,6 +12,12 @@
 **NVIDIA Jetson Orin Nano 기반 온디바이스 실시간 2-Stage 비전 AI 파이프라인 및 임베디드 FSM 도어 제어기**  
 YOLOv11 TensorRT 10.x 초저지연 추론, PET 2단계 세부 품질 검사, 드롭아웃 내결함성 도어 FSM, 60 FPS 바이너리 TCP 스트리밍을 통합 제공합니다.
 
+<br/>
+
+[![Live Inference Demo](../docs/assets/demo/demo_preview.gif)](../docs/assets/demo/demo_preview.gif)
+
+<p><em>[Jetson Orin Nano 실시간 3채널 비전 AI 추론 및 초저지연 바이너리 스트리밍 시연]</em></p>
+
 </div>
 
 ---
@@ -22,7 +28,7 @@ YOLOv11 TensorRT 10.x 초저지연 추론, PET 2단계 세부 품질 검사, 드
 
 ```mermaid
 flowchart LR
-    CAM["V4L2 Camera<br/>(60 FPS Zero-Lag)"] --> PRE["C++ Preprocess<br/>(Letterbox 640x640)"]
+    CAM["Logitech C270 WebCam<br/>(USB V4L2 60 FPS Zero-Lag)"] --> PRE["C++ Preprocess<br/>(Letterbox 640x640)"]
     PRE --> TRT1["1단계: YOLOv11s<br/>(TensorRT 10.x async_v3)"]
     TRT1 --> NMS["OpenCV C++ NMS<br/>(conf=0.80, iou=0.45)"]
 
@@ -58,7 +64,7 @@ flowchart LR
 
 ### 4. 60 FPS 지연 없는(Zero-Lag) 카메라 & 8B 바이너리 TCP 스트리밍
 
-- **커널 링 버퍼 지연 차단**: V4L2 드라이버 버퍼를 1프레임(`CAP_PROP_BUFFERSIZE = 1`)으로 강제하고 데몬 스레드에서 최신 프레임만 폴링하여 오래된 프레임 누적(Lag)을 방지했습니다.
+- **커널 링 버퍼 지연 차단**: 로지텍 C270 웹캠의 V4L2 드라이버 버퍼를 1프레임(`CAP_PROP_BUFFERSIZE = 1`)으로 강제하고 데몬 스레드에서 최신 프레임만 폴링하여 오래된 프레임 누적(Lag)을 방지했습니다.
 - **8바이트 빅엔디안 헤더**: `[JPEG Size(4B)][JSON Size(4B)] + Payload` 규격으로 관제 대시보드(Qt)에 초당 60프레임 무손실 실시간 스트리밍을 수행합니다.
 - **UART 무중단 시뮬레이터**: STM32 MCU 미연결 개발 환경에서는 가상 Mock 모드로 자동 폴백되어 중단 없이 로컬 테스트가 가능합니다.
 
@@ -72,7 +78,7 @@ flowchart LR
 | **Inference Engine**  | NVIDIA TensorRT 10.x (`python3-libnvinfer`)       | FP16 고속 추론 모드                     |
 | **Deep Learning**     | YOLOv11s (Detection) + MobileNetV3 / EfficientNet | 4대 재활용품(종이, 캔, 페트, 비닐) 분류 |
 | **추론 파라미터**     | `conf_threshold = 0.80`, `iou_threshold = 0.45`   | 오탐 차단 및 NMS 최적 균형값            |
-| **Camera Interface**  | USB V4L2 WebCam (`/dev/video0`)                   | 640x480 @ 60 FPS (MJPG)                 |
+| **Camera Interface**  | Logitech C270 HD WebCam (USB V4L2 `/dev/video0`)  | 640x480 @ 60 FPS (MJPG)                 |
 | **Hardware I/O**      | UART (`/dev/ttyMCU`, 115200 bps)                  | STM32 ASCII 프로토콜 연동               |
 | **Telemetry Network** | TCP Server (Port 9000, `TCP_NODELAY`)             | 관제 PC 60 FPS 영상/메타데이터 전송     |
 

@@ -39,7 +39,7 @@ Jetson GPU ──> X11 XServer Protocol (비압축 비트맵 442Mbps) ──> �
 ```mermaid
 flowchart LR
     subgraph Jetson["🧠 Jetson Orin Nano (Headless)"]
-        Cam["📸 CSI Camera<br/>(60 FPS)"]
+        Cam["📸 USB WebCam<br/>(Logitech C270 / 60 FPS)"]
         TRT["⚡ TensorRT 10<br/>(10.8ms AI 추론)"]
         JPG["🗜️ TurboJPEG<br/>(Quality 75 / 2.3ms)"]
         Pkt["📦 8B Binary Header<br/>(Image + JSON Size)"]
@@ -58,6 +58,13 @@ flowchart LR
 
     Sock -->|"Custom Binary TCP Stream (Port 9000)"| NetRecv
 ```
+
+<div align="center">
+  <img src="assets/demo/demo_preview.gif" width="600" alt="60 FPS Streaming Demo"/>
+  <p><em>[실제 검증: Jetson Orin Nano ➔ Qt 관제 화면 58~60 FPS 초저지연 바이너리 스트리밍]</em></p>
+</div>
+
+---
 
 ### 2.1 8-Byte Fixed Header + Dual Payload 구조
 
@@ -160,7 +167,7 @@ void JetsonClient::onReadyRead() {
 ```
 [1 프레임 처리 타임라인 (총 14.1ms 소요 / 60 FPS 주기 16.6ms 대비 마진 2.5ms 확보)]
 
-├─ CSI 카메라 캡처 (Zero-Copy V4L2)  : 2.1 ms  ██
+├─ USB 웹캠 캡처 (Logitech C270 / V4L2): 2.1 ms  ██
 ├─ TensorRT 10 AI 추론 (FP16 최적화)  : 8.7 ms  █████████
 ├─ 2-Stage 품질 검사 로직 (규칙 필터) : 0.8 ms  █
 ├─ TurboJPEG 압축 (Quality 75)        : 1.5 ms  █

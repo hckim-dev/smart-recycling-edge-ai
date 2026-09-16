@@ -12,6 +12,14 @@
 **NVIDIA Jetson Orin Nano 기반 초저지연 실시간 비전 AI와 STM32 베어메탈 분류 제어가 결합된**  
 **End-to-End 스마트 무인 재활용 자원 회수 에코시스템**
 
+<br/>
+
+[![Demo Preview](docs/assets/demo/demo_preview.gif)](docs/assets/demo/demo_preview.gif)
+
+<br/>
+
+[![Final Report](https://img.shields.io/badge/PDF-최종_결과보고서_다운로드-blue?style=for-the-badge&logo=adobeacrobatreader&logoColor=white)](docs/presentation/smart_recycling_final_report.pdf)
+
 </div>
 
 ---
@@ -24,6 +32,18 @@
 - **오투입 방지 물리 인터록**: STM32F411 펌웨어가 하단 분류 모터의 도착 완료를 확인한 뒤에만 투입구를 개방하여 기계적 오분류 결함을 원천 차단합니다.
 - **실시간 데이터 동기화**: 60 FPS 바이너리 TCP 스트림(Jetson ➔ Qt)과 양방향 WebSocket(Server ↔ Mobile/Kiosk)을 통해 전 단계를 밀리초 단위로 동기화합니다.
 - **데이터 무결성 & 리워드**: SQLite 원자적 `RETURNING` 트랜잭션으로 포인트 이중 지급(Double Spending) 및 동시성 락 경합을 방어합니다.
+
+### 📷 시스템 실물 및 핵심 UI 프리뷰
+
+|                         🤖 키오스크 기구 & 초음파 센서 실물                         |                        🖥️ AI 실시간 검출 및 도어 개방 UI                         |
+| :---------------------------------------------------------------------------------: | :------------------------------------------------------------------------------: |
+| <img src="docs/assets/images/hardware_kiosk.jpg" width="420" alt="Hardware Kiosk"/> | <img src="docs/assets/images/kiosk_detect_pass.png" width="420" alt="Kiosk UI"/> |
+|                     **4구역 수거함 & STM32 3축 서보 분류 기구**                     |                    **TensorRT 10.x 객체 검출 & 물리 인터록**                     |
+
+|                                📱 1초 QR 바인딩                                 |                                     📱 실시간 투입 정산 푸시                                      |                        📱 탄소 절감 & 에코 리워드                         |
+| :-----------------------------------------------------------------------------: | :-----------------------------------------------------------------------------------------------: | :-----------------------------------------------------------------------: |
+| <img src="docs/assets/images/mobile_03_qr_scan.png" width="260" alt="QR Scan"/> | <img src="docs/assets/images/mobile_05_recycle_complete.png" width="260" alt="Recycle Complete"/> | <img src="docs/assets/images/mobile_02_home.png" width="260" alt="Home"/> |
+|                          **CameraX 초고속 세션 연결**                           |                                   **WebSocket 즉시 결과 통보**                                    |                    **포인트 적립 & 소나무 식수 지표**                     |
 
 ---
 

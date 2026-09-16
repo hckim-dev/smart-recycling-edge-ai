@@ -1,4 +1,4 @@
-"""V4L2 백엔드 기반 초저지연 백그라운드 카메라 프레임 캡처 모듈."""
+"""Logitech C270 웹캠 (USB V4L2 백엔드) 기반 초저지연 백그라운드 카메라 프레임 캡처 모듈."""
 
 import threading
 import time

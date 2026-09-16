@@ -59,6 +59,27 @@ sequenceDiagram
 
 ---
 
+## 📱 사용자 경험 및 화면 플로우 (User Experience & Screen Flow)
+
+사용자의 전체 이용 여정(인증 ➔ 키오스크 연동 ➔ 배출 정산 ➔ 리워드 소비)에 맞춘 9단계 핵심 화면 구성입니다.
+
+|                              Step 1. 간편 로그인                               |                       Step 2. 메인 홈 & 에코 대시보드                        |                              Step 3. CameraX QR 스캔                               |
+| :----------------------------------------------------------------------------: | :--------------------------------------------------------------------------: | :--------------------------------------------------------------------------------: |
+| <img src="../docs/assets/images/mobile_01_login.png" width="230" alt="Login"/> | <img src="../docs/assets/images/mobile_02_home.png" width="230" alt="Home"/> | <img src="../docs/assets/images/mobile_03_qr_scan.png" width="230" alt="QR Scan"/> |
+|           • 휴대폰 번호 즉시 로그인<br/>• 미인증 시 딥링크 세션 보류           |          • 보유 포인트 & 소나무 식수 지표<br/>• 실시간 펄스 QR 버튼          |             • Google ML Kit 1초 바인딩<br/>• 뷰파인더 가이드 오버레이              |
+
+|                                 Step 4. 키오스크 세션 바인딩                                 |                                    Step 5. 실시간 배출 정산 통보                                     |                              Step 6. 날짜별 배출 이력                              |
+| :------------------------------------------------------------------------------------------: | :--------------------------------------------------------------------------------------------------: | :--------------------------------------------------------------------------------: |
+| <img src="../docs/assets/images/mobile_04_kiosk_connected.png" width="230" alt="Connected"/> | <img src="../docs/assets/images/mobile_05_recycle_complete.png" width="230" alt="Recycle Complete"/> | <img src="../docs/assets/images/mobile_06_history.png" width="230" alt="History"/> |
+|                 • 키오스크 위치 및 호기 확인<br/>• WebSocket 세션 핸드셰이크                 |                      • WebSocket 즉각 푸시 팝업<br/>• 품목별 수량 & 포인트 가산                      |           • 누적 탄소 절감량 환산 기록<br/>• 투입 상세 내역 무한 스크롤            |
+
+|                          Step 7. 기프티콘 리워드 샵                          |                                    Step 8. 쿠폰 바코드 상세                                    |                          Step 9. 마이페이지 & 등급 관리                          |
+| :--------------------------------------------------------------------------: | :--------------------------------------------------------------------------------------------: | :------------------------------------------------------------------------------: |
+| <img src="../docs/assets/images/mobile_07_shop.png" width="230" alt="Shop"/> | <img src="../docs/assets/images/mobile_08_coupon_detail.png" width="230" alt="Coupon Detail"/> | <img src="../docs/assets/images/mobile_09_mypage.png" width="230" alt="MyPage"/> |
+|          • 적립 포인트로 상품 교환<br/>• 원자적 차감 트랜잭션 연동           |                  • 즉시 사용 가능한 바코드 표출<br/>• 유효기간 및 사용처 안내                  |               • 회원 등급(새싹/나무/숲)<br/>• 환경 기여 종합 통계                |
+
+---
+
 ## 💡 엔지니어링 및 아키텍처 강점 (Engineering Highlights)
 
 ### 1. 계층형 클린 아키텍처 & MVI 단방향 데이터 흐름 (UDF)

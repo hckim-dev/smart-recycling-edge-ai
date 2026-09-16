@@ -9,7 +9,7 @@ JETSON_ROOT_DIR = Path(__file__).resolve().parent.parent
 
 @dataclass(frozen=True)
 class CameraConfig:
-    """V4L2 카메라 캡처 파라미터 설정."""
+    """Logitech C270 USB 웹캠 (V4L2 백엔드) 파라미터 설정."""
 
     device_id: int = 0
     width: int = 640
