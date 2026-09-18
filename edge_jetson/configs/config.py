@@ -101,7 +101,7 @@ MODEL_CLASS_MAP: tuple[ModelClassMeta, ...] = (
 class ModelConfig:
     """YOLOv11 TensorRT 엔진 경로 및 추론 임계값 설정."""
 
-    engine_path: Path = JETSON_ROOT_DIR / "models" / "recycle_detect_yolo11n.engine"
+    engine_path: Path = JETSON_ROOT_DIR / "models" / "recycle_detect_yolo11s.engine"
     input_shape: tuple[int, int] = (640, 640)
     conf_threshold: float = 0.80
     iou_threshold: float = 0.45
@@ -139,7 +139,7 @@ class InspectionPipelineConfig:
                 / "models"
                 / "pet_label_efficientnet.engine",
                 input_shape=(224, 224),
-                threshold=0.50,
+                threshold=0.30,
                 is_positive_fail=True,
                 fail_reason=InspectionReason.LABEL_ATTACHED.value,
                 enabled=True,
@@ -152,7 +152,7 @@ class InspectionPipelineConfig:
                 / "models"
                 / "pet_content_mobilenetv3.engine",
                 input_shape=(224, 224),
-                threshold=0.50,
+                threshold=0.90,
                 is_positive_fail=True,
                 fail_reason=InspectionReason.CONTAMINATED.value,
                 enabled=True,
