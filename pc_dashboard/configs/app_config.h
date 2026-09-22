@@ -37,7 +37,7 @@ namespace Config {
 constexpr int CATEGORY_COUNT = 4;
 
 // Jetson 엣지 디바이스 TCP 소켓 스트리밍 및 버퍼링 제약
-constexpr char DEFAULT_JETSON_IP[] = "10.10.15.42";
+constexpr char DEFAULT_JETSON_IP[] = "10.10.15.48";
 constexpr quint16 JETSON_PORT = 9000;
 constexpr int SOCKET_BUFFER_RESERVE = 512 * 1024;
 constexpr int AUTO_RECONNECT_INTERVAL_MS = 2000;
@@ -47,7 +47,7 @@ constexpr quint32 MAX_JSON_SIZE = 64 * 1024;
 constexpr int MAX_BUFFER_CAPACITY = 20 * 1024 * 1024; // 패킷 손상 시 무한 누적 방지를 위한 버퍼 강제 플러시 상한 (20MB)
 
 // FastAPI 중앙 백엔드 REST/WebSocket 접속 파라미터
-constexpr char DEFAULT_BACKEND_HOST[] = "10.10.15.3";
+constexpr char DEFAULT_BACKEND_HOST[] = "10.10.15.8";
 constexpr quint16 DEFAULT_BACKEND_PORT = 8000;
 constexpr int DEFAULT_BIN_ID = 1;
 
