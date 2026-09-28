@@ -14,7 +14,7 @@
 
 <br/>
 
-<img src="docs/assets/demo/demo_preview.gif" width="720" alt="Demo Preview"/>
+[Demo](https://github.com/user-attachments/assets/a7b54b54-8b72-4728-b04c-dced2dc5ca10)
 
 <br/>
 
