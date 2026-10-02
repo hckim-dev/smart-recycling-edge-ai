@@ -97,3 +97,18 @@ captures/
 Thumbs.db
 desktop.ini
 ehthumbs.db
+# Local credentials and signing material (templates remain tracked).
+.env
+.env.*
+!.env.example
+!.env.*.example
+secrets.properties
+local.properties
+google-services.json
+GoogleService-Info.plist
+*.keystore
+*.jks
+*.p12
+*.pfx
+*.pem
+*.key

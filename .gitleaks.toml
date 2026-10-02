@@ -1,0 +1,67 @@
+[extend]
+useDefault = true
+
+[[rules]]
+id = "google-key-in-xml"
+description = "Google API key including XML text nodes"
+regex = '''(AIza[0-9A-Za-z_-]{35})'''
+secretGroup = 1
+
+[[rules]]
+id = "credential-resource"
+description = "Credential stored as an Android string resource"
+regex = '''(?i)<string\s+name="(?:[^"\r\n]*(?:api_?key|server_key|client_secret|google_map|kakao[^"\r\n]*key)[^"\r\n]*)"[^>]*>\s*"?([A-Za-z0-9_%+/:.=-]{8,256})"?\s*</string>'''
+secretGroup = 1
+
+[[rules]]
+id = "credential-property"
+description = "API key or secret stored in a properties/config file"
+regex = '''(?im)^\s*[A-Z_]*(?:API_KEY|SERVICE_KEY|ACCESS_KEY|CLIENT_SECRET|SERVER_KEY|JWT_SECRET|SECRET_KEY|PASSWORD)[A-Z_]*\s*[:=]\s*["']?([A-Za-z0-9_%+/:.=-]{8,256})'''
+path = '''(?i)(?:\.(?:properties|ya?ml|ini|cfg)|(?:^|/)\.env(?:\.[^/]*)?)$'''
+secretGroup = 1
+
+[[rules]]
+id = "native-key-or-api-constant"
+description = "Kakao Native key or hardcoded service credential"
+regex = '''(?i)(?:KakaoSdk\.init\([^,\r\n]+,\s*|\b(?:TMAP_API|KAKAO_AK|CLIENT_ID|SERVER_KEY)\s*=\s*)"([A-Za-z0-9_%+/:.=-]{20,256})"'''
+secretGroup = 1
+
+[[rules]]
+id = "jwt-signing-key"
+description = "Hardcoded JWT signing key"
+regex = '''(?im)^\s*secret-key\s*:\s*([A-Za-z0-9_+=/-]{16,256})'''
+secretGroup = 1
+
+[[rules]]
+id = "literal-password-in-source"
+description = "Literal password or client secret assigned in source code"
+regex = '''(?i)\b(?:password|passwd|pwd|client_secret|clientSecret|jwt_secret)\s*[:=]\s*["']([^"'\r\n]{4,256})["']'''
+secretGroup = 1
+path = '''(?i)\.(?:c|h|cpp|kt|java|py|js|ts|dart|go|rs)$'''
+
+[[rules.allowlists]]
+description = "Known dummy password in unit-test fixtures only"
+condition = "AND"
+paths = ['''(?:^|/)(?:tests|test)/''', '''/src/(?:test|androidTest)/''']
+regexTarget = "secret"
+regexes = ['''^1234$''']
+
+[[rules.allowlists]]
+description = "Verified Compose UI preview input only; keep dummy preview content"
+condition = "AND"
+paths = ['''hilt/study/HiltSNS/presentation/src/main/java/com/hocheol/presentation/login/(?:LoginScreen|SignUpScreen)\.kt$''']
+regexTarget = "secret"
+regexes = ['''^1234$''']
+
+[[rules]]
+id = "short-config-password"
+description = "Literal password in a local configuration"
+regex = '''(?im)^\s*(?:password|passwd|pwd|client_secret|JWT_SECRET|secret-key)\s*[:=]\s*["']?([A-Za-z0-9_+=/-]{4,256})'''
+secretGroup = 1
+path = '''(?i)(?:\.(?:properties|ya?ml|ini|cfg)|(?:^|/)\.env(?:\.[^/]*)?)$'''
+
+[[rules]]
+id = "kakao-redirect-key"
+description = "Kakao Native app key embedded in Android redirect scheme"
+regex = '''kakao([a-f0-9]{32})'''
+secretGroup = 1
