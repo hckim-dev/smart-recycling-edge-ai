@@ -1,169 +1,114 @@
-# 📱 Smart Recycling Mobile App (Android)
+# Android 사용자 앱
 
-<div align="center">
+[프로젝트 소개](../README.md) · [전체 흐름](../docs/architecture.md) · [서버 명세](../docs/protocol-spec.md)
 
-[![Platform](https://img.shields.io/badge/Platform-Android%208.0%2B-3DDC84?logo=android&logoColor=white)](https://developer.android.com)
-[![Language](https://img.shields.io/badge/Kotlin-2.0-7F52FF?logo=kotlin&logoColor=white)](https://kotlinlang.org)
-[![UI](<https://img.shields.io/badge/UI-Jetpack%20Compose%20(M3)-4285F4?logo=jetpackcompose&logoColor=white>)](https://developer.android.com/jetpack/compose)
-[![Architecture](https://img.shields.io/badge/Architecture-Clean%20%2B%20MVI-FF6F00)]()
-[![DI](<https://img.shields.io/badge/DI-Hilt%20(KSP)-success>)]()
-[![Network](https://img.shields.io/badge/Network-Retrofit%20%2B%20WebSocket-blue)]()
+Qt 키오스크의 QR을 스캔해 사용자를 연결하고, 배출 완료 결과·이력·포인트를 확인하는 Android 앱입니다. 포인트 사용 화면은 서버 차감과 로컬 쿠폰 시연을 연결합니다.
 
-**스마트 키오스크(Qt/Jetson)와 실시간 연동되는 친환경 리워드 모바일 애플리케이션**  
-CameraX 기반 1초 QR 바인딩, OkHttp WebSocket 실시간 배출 정산 피드백, 에코 게이미피케이션 및 리워드 샵을 제공합니다.
+## 기능과 구현 범위
 
-</div>
+| 기능 | 구현 |
+| --- | --- |
+| 간편 로그인 | 전화번호·이름 REST 요청, DataStore에 사용자 정보 저장 |
+| QR·딥링크 | CameraX·ML Kit 스캔, bin_id 파싱·바인딩 |
+| 배출 세션 | 연결 안내, WebSocket 완료·취소 이벤트 수신 |
+| 사용자 정보 | 보유 포인트·배출 이력 조회, 새로고침 |
+| 포인트 상점 | 로컬 상품 목록, 서버 차감, 임의 쿠폰 문자열 생성 |
+| 환경 기여 표시 | 프로젝트 내부 환산식과 배출 이력에 따른 등급·지표 |
 
----
+상품은 `FakeShopDataSource`의 샘플이며 쿠폰은 UUID 기반 문자열입니다. 실제 제휴 상품·결제·사용 가능한 바코드·쿠폰 보관함을 구현한 것은 아닙니다.
 
-## 📌 핵심 기능 (Key Features)
+## 상태와 데이터 흐름
 
-| 기능                        | 기술 구현                   | 사용자 경험 (UX)                                                                    |
-| --------------------------- | --------------------------- | ----------------------------------------------------------------------------------- |
-| **초고속 QR & 딥링크 연동** | `CameraX` + `Google ML Kit` | 키오스크 화면의 QR 코드를 1초 만에 스캔하여 즉시 1:1 사용자 세션 바인딩             |
-| **실시간 배출 정산 수신**   | `OkHttp WebSocket`          | 키오스크 투입 완료 시 품목별 수량, 탄소 저감량, 적립 포인트를 팝업으로 즉각 수신    |
-| **에코 게이미피케이션**     | Domain Engine               | 누적 배출량 기반 3단계 등급제(🌱새싹 ➔ 🌿나무 ➔ 🌳숲) 및 소나무 식수 환산 지표 제공 |
-| **포인트 리워드 샵**        | `Retrofit2` + `DataStore`   | 적립된 포인트로 기프티콘, 종량제 봉투 교환 (서버 원자적 포인트 차감 연동)           |
-
----
-
-## 🏗 시스템 상호작용 흐름 (Interaction Flow)
-
-사용자가 키오스크 QR을 스캔하고 재활용품을 투입한 뒤 실시간으로 포인트를 정산받는 단일 파이프라인입니다.
-
-```mermaid
-sequenceDiagram
-    autonumber
-    actor User as 사용자
-    participant App as 모바일 앱 (Android)
-    participant Server as 중앙 서버 (FastAPI)
-    participant Kiosk as 스마트 키오스크 (Qt / Jetson)
-
-    User->>App: 키오스크 QR 스캔 (CameraX)
-    App->>Server: POST /api/kiosk/bind (bin_id, user_id)
-    Server->>Kiosk: WebSocket: USER_AUTHENTICATED
-    Kiosk-->>Server: 세션 활성화 완료 (투입 화면 전환)
-
-    App->>Server: WebSocket 연결 (/ws/kiosk/{bin_id}/mobile)
-    App->>User: '투입 대기 중' 상태 표출 (펄스 애니메이션)
-
-    Note over Kiosk: 사용자가 품목(캔/페트 등) 투입 및 AI 분류 진행
-
-    Kiosk->>Server: POST /api/recycle/submit (품목별 수량, 탄소량)
-    Server->>Server: DB 원자적 포인트 가산 및 이력 영속화
-    Server-->>App: WebSocket 브로드캐스트: RECYCLE_COMPLETE
-
-    App->>User: 배출 결과 및 획득 포인트 팝업 표출
-    App->>App: 잔여 포인트 및 배출 내역 자동 동기화
+```text
+Compose 화면 → ViewModel → Repository → REST / WebSocket / DataStore
+     ↑             │
+     └── UiState · StateFlow
 ```
 
----
+- ViewModel이 불변 데이터 클래스 형태의 UiState를 갱신하고 화면은 이를 수집합니다.
+- Repository는 DTO를 화면에서 사용하는 모델로 변환합니다.
+- `domain/model`에는 사용자·결과 모델과 환경 지표 계산이 있습니다. 별도 UseCase·Repository interface 계층은 없습니다.
+- Hilt가 네트워크·저장소·Repository 의존성을 주입합니다.
+- DataStore가 사용자 ID·이름·전화번호·포인트를 보관합니다. 인증 토큰을 저장하는 구조는 아닙니다.
 
-## 📱 사용자 경험 및 화면 플로우 (User Experience & Screen Flow)
+## QR 연결과 완료
 
-사용자의 전체 이용 여정(인증 ➔ 키오스크 연동 ➔ 배출 정산 ➔ 리워드 소비)에 맞춘 9단계 핵심 화면 구성입니다.
+1. 앱 내부 스캐너 또는 `smartrecycle://kiosk/auth?bin_id=1`로 진입합니다.
+2. 로그인 상태에서 바인딩 REST를 요청합니다. 로그인 전 딥링크는 `pendingDeeplinkBinId`로 보류하도록 구성했습니다.
+3. 성공 응답 후 모바일 WebSocket을 연결하고 대기 화면을 표시합니다.
+4. 완료·취소 이벤트를 받으면 연결을 닫고 화면을 갱신합니다.
 
-|                              Step 1. 간편 로그인                               |                       Step 2. 메인 홈 & 에코 대시보드                        |                              Step 3. CameraX QR 스캔                               |
-| :----------------------------------------------------------------------------: | :--------------------------------------------------------------------------: | :--------------------------------------------------------------------------------: |
-| <img src="../docs/assets/images/mobile_01_login.png" width="230" alt="Login"/> | <img src="../docs/assets/images/mobile_02_home.png" width="230" alt="Home"/> | <img src="../docs/assets/images/mobile_03_qr_scan.png" width="230" alt="QR Scan"/> |
-|           • 휴대폰 번호 즉시 로그인<br/>• 미인증 시 딥링크 세션 보류           |          • 보유 포인트 & 소나무 식수 지표<br/>• 실시간 펄스 QR 버튼          |             • Google ML Kit 1초 바인딩<br/>• 뷰파인더 가이드 오버레이              |
+CameraX는 `KEEP_ONLY_LATEST`를 사용하고 분석 이미지 처리가 끝나면 `ImageProxy`를 닫습니다. WebSocket 상태는 StateFlow, 완료·취소 이벤트는 SharedFlow로 전달합니다.
 
-|                                 Step 4. 키오스크 세션 바인딩                                 |                                    Step 5. 실시간 배출 정산 통보                                     |                              Step 6. 날짜별 배출 이력                              |
-| :------------------------------------------------------------------------------------------: | :--------------------------------------------------------------------------------------------------: | :--------------------------------------------------------------------------------: |
-| <img src="../docs/assets/images/mobile_04_kiosk_connected.png" width="230" alt="Connected"/> | <img src="../docs/assets/images/mobile_05_recycle_complete.png" width="230" alt="Recycle Complete"/> | <img src="../docs/assets/images/mobile_06_history.png" width="230" alt="History"/> |
-|                 • 키오스크 위치 및 호기 확인<br/>• WebSocket 세션 핸드셰이크                 |                      • WebSocket 즉각 푸시 팝업<br/>• 품목별 수량 & 포인트 가산                      |           • 누적 탄소 절감량 환산 기록<br/>• 투입 상세 내역 무한 스크롤            |
+네트워크 실패 시 재연결을 예약하는 코드가 있으나, `connect()`와 재시도 Job의 취소 관계 때문에 `1 → 2 → 4초` 정책이 보장된 기능으로 설명하지 않습니다. 재연결 안정화·이벤트 복구는 후속 과제입니다.
 
-|                          Step 7. 기프티콘 리워드 샵                          |                                    Step 8. 쿠폰 바코드 상세                                    |                          Step 9. 마이페이지 & 등급 관리                          |
-| :--------------------------------------------------------------------------: | :--------------------------------------------------------------------------------------------: | :------------------------------------------------------------------------------: |
-| <img src="../docs/assets/images/mobile_07_shop.png" width="230" alt="Shop"/> | <img src="../docs/assets/images/mobile_08_coupon_detail.png" width="230" alt="Coupon Detail"/> | <img src="../docs/assets/images/mobile_09_mypage.png" width="230" alt="MyPage"/> |
-|          • 적립 포인트로 상품 교환<br/>• 원자적 차감 트랜잭션 연동           |                  • 즉시 사용 가능한 바코드 표출<br/>• 유효기간 및 사용처 안내                  |               • 회원 등급(새싹/나무/숲)<br/>• 환경 기여 종합 통계                |
+## 주요 화면
 
----
+| QR 스캔 | 키오스크 연결 | 배출 완료 |
+| --- | --- | --- |
+| <img src="../docs/assets/images/mobile_03_qr_scan.png" width="210" alt="키오스크 QR 스캔"/> | <img src="../docs/assets/images/mobile_04_kiosk_connected.png" width="210" alt="키오스크 연결 대기"/> | <img src="../docs/assets/images/mobile_05_recycle_complete.png" width="210" alt="배출 결과와 포인트"/> |
 
-## 💡 엔지니어링 및 아키텍처 강점 (Engineering Highlights)
+<details>
+<summary>로그인·홈·이력·상점·마이페이지 화면</summary>
 
-### 1. 계층형 클린 아키텍처 & MVI 단방향 데이터 흐름 (UDF)
+| 로그인 | 홈 | 이력 |
+| --- | --- | --- |
+| <img src="../docs/assets/images/mobile_01_login.png" width="200" alt="간편 로그인"/> | <img src="../docs/assets/images/mobile_02_home.png" width="200" alt="홈과 보유 포인트"/> | <img src="../docs/assets/images/mobile_06_history.png" width="200" alt="배출 이력"/> |
 
-- **철저한 계층 분리**: `presentation` (Compose UI, ViewModel) ➔ `domain` (Entity, Business Rule) ➔ `data` (Repository, DataSource, DTO)의 3계층 의존성 규칙을 준수하여 모듈 결합도를 최소화했습니다.
-- **불필요한 리컴포지션 0% 방어**: UI State 및 도메인 모델에 `@Immutable` 및 `@Stable`을 적용하고, 인라인 람다 대신 메서드 참조(Method Reference)를 사용하여 렌더링 성능을 극대화했습니다.
+| 상점 | 쿠폰 시연 | 마이페이지 |
+| --- | --- | --- |
+| <img src="../docs/assets/images/mobile_07_shop.png" width="200" alt="샘플 상품 목록"/> | <img src="../docs/assets/images/mobile_08_coupon_detail.png" width="200" alt="쿠폰 문자열 시연"/> | <img src="../docs/assets/images/mobile_09_mypage.png" width="200" alt="등급과 환경 기여 표시"/> |
 
-### 2. WebSocket 복원력 및 수명주기 누수 방지 (`KioskWebSocketManager`)
+</details>
 
-- **지수 백오프(Exponential Backoff)**: 네트워크 순단 시 `1s -> 2s -> 4s` 지수 대기 후 자동 재연결 파이프라인을 가동합니다.
-- **상태와 이벤트의 명확한 분리**: 연결 상태는 `StateFlow<WebSocketConnectionState>`로, 정산/취소 같은 단발성 이벤트는 `SharedFlow`로 격리하여 화면 회전 시 이벤트 중복 소비를 방지했습니다.
-- **메모리/소켓 누수 차단**: 세션 정상 종료 시 표준 `1000 NORMAL_CLOSURE` 코드로 소켓을 닫고, `SupervisorJob` 기반 코루틴 스코프를 안전하게 캔슬합니다.
+홈의 탄소 표시는 보유 포인트 기반 환산이고, 마이페이지는 이력의 탄소량을 합산합니다. 이력은 전체 목록을 조회하며 무한 스크롤 페이지 요청은 구현하지 않았습니다.
 
-### 3. 미인증 상태 딥링크 진입 엣지 케이스 처리
+## 빌드와 실행
 
-- 로그아웃 상태에서 외부 딥링크(`smartrecycle://kiosk/auth?bin_id=1`)로 진입할 경우, 세션이 끊기지 않도록 `pendingDeeplinkBinId`에 타깃 키오스크를 보류해 둔 뒤 **로그인 완료 즉시 바인딩을 자동으로 연계**하는 연속적인 사용자 경험(UX)을 구현했습니다.
+프로젝트에 선언된 버전은 [libs.versions.toml](gradle/libs.versions.toml)과 Gradle 설정을 기준으로 합니다.
 
-### 4. 고성능 비동기 툴체인 (KSP & Kotlin 2.x)
+| 항목 | 설정 |
+| --- | --- |
+| Android | minSdk 26, compileSdk·targetSdk 37 |
+| Android Gradle Plugin | 9.4.0 |
+| Kotlin Compose plugin | 2.4.10 |
+| Gradle Wrapper | 9.7.1 |
+| Gradle Daemon JDK | `gradle-daemon-jvm.properties`의 toolchainVersion 25 |
+| Java 소스·타깃 | 11. Gradle 실행 JDK와 별도 설정 |
+| UI·통신 | Compose BOM 2026.08.00, Retrofit 3.0.0, OkHttp 5.5.0 |
 
-- 무거운 구형 `kapt` 대신 **KSP(Kotlin Symbol Processing)**를 전면 도입하여 Dagger Hilt 및 Moshi 어댑터 코드 생성 속도를 최적화했습니다.
+1. Android Studio에서 `mobile_app`을 엽니다.
+2. [Constants.kt](app/src/main/java/com/hocheol/smartrecyclingedgeai/utils/Constants.kt)의 `BASE_URL`·`WS_BASE_URL`을 같은 서버 주소로 설정합니다.
+3. SDK·JDK·Gradle Sync를 확인한 뒤 기기에 실행합니다.
 
----
-
-## 🛠 기술 스택 (Tech Stack)
-
-| 영역                  | 기술 스택                                                              |
-| --------------------- | ---------------------------------------------------------------------- |
-| **UI & Presentation** | Jetpack Compose (BOM 2026.08), Material 3, Lifecycle ViewModel Compose |
-| **비동기 & 동시성**   | Kotlin Coroutines, StateFlow, SharedFlow                               |
-| **의존성 주입 (DI)**  | Dagger Hilt 2.60 (KSP 기반)                                            |
-| **네트워크 & 직렬화** | Retrofit 3.0, OkHttp 5.5 (HTTP/WebSocket), Moshi Kotlin (CodeGen)      |
-| **로컬 영속화**       | Jetpack DataStore Preferences (세션 및 포인트 캐싱)                    |
-| **온디바이스 비전**   | CameraX 1.6, Google ML Kit Barcode Scanning                            |
-
----
-
-## 📁 디렉토리 구조 (Directory Structure)
-
-```
-mobile_app/app/src/main/java/com/hocheol/smartrecyclingedgeai/
-├── data/
-│   ├── local/          # DataStore 기반 SessionManager (토큰, 포인트 영속화)
-│   ├── model/          # Moshi Request/Response DTO
-│   ├── remote/         # Retrofit API 인터페이스 및 KioskWebSocketManager
-│   └── repository/     # AuthRepository, KioskRepository 구현체
-├── di/                 # Hilt 의존성 주입 모듈 (Network, Repository, Storage)
-├── domain/model/       # UI와 격리된 순수 비즈니스 엔티티 (User, RecycleResult 등)
-├── presentation/       # 단일 액티비티 기반 화면 계층
-│   ├── home/           # 메인 홈, CameraX QR 스캐너, 정산 결과 다이얼로그
-│   ├── history/        # 분리배출 이력 및 누적 탄소 저감량 요약
-│   ├── shop/           # 포인트 리워드 교환 상점 (원자적 차감)
-│   └── mypage/         # 사용자 등급, 소나무 식수 효과, 분리배출 가이드
-└── utils/              # 네트워크 전역 상수(Constants), 포맷터
+```powershell
+cd mobile_app
+.\gradlew.bat assembleDebug
+.\gradlew.bat installDebug
 ```
 
----
+출력 APK는 `app/build/outputs/apk/debug/app-debug.apk`입니다. Manifest는 개발 서버 HTTP 연결을 위해 cleartext traffic을 허용합니다.
 
-## 🚀 빠른 시작 (Getting Started)
+딥링크 진입 확인:
 
-### 1. 서버 접속 IP 설정
-
-[`Constants.kt`](app/src/main/java/com/hocheol/smartrecyclingedgeai/utils/Constants.kt)에서 중앙 FastAPI 서버 주소를 설정합니다.
-
-```kotlin
-object Constants {
-    const val BASE_URL = "http://<SERVER_IP>:8000/"
-    const val WS_BASE_URL = "ws://<SERVER_IP>:8000/"
-}
-```
-
-### 2. 빌드 및 기기 설치 (CLI / Android Studio)
-
-- **Android Studio 사용 시**: `mobile_app` 폴더를 프로젝트로 열고 Gradle Sync 완료 후 **Run 'app' (`Shift + F10`)** 실행.
-- **CLI 터미널 사용 시** (JDK 17+ 필요):
-
-```bash
-# 1. 디버그 APK 빌드 (Windows: gradlew.bat, macOS/Linux: ./gradlew)
-./gradlew assembleDebug
-
-# 2. 연결된 Android 기기(USB 디버깅) 또는 에뮬레이터에 즉시 설치
-./gradlew installDebug
-
-# 3. ADB를 통한 딥링크 단독 테스트 (키오스크 화면 없이 인증/바인딩 동작 확인)
+```powershell
 adb shell am start -a android.intent.action.VIEW -d "smartrecycle://kiosk/auth?bin_id=1"
 ```
 
-> **빌드 산출물**: `app/build/outputs/apk/debug/app-debug.apk`
+이 명령은 앱 진입을 요청합니다. 실제 바인딩·완료 확인에는 서버·Qt 연결이 필요합니다.
+
+## 코드 안내
+
+기본 경로: [app/src/main/java/com/hocheol/smartrecyclingedgeai](app/src/main/java/com/hocheol/smartrecyclingedgeai/)
+
+| 위치 | 책임 |
+| --- | --- |
+| `MainActivity.kt` | 진입·딥링크·로그인 화면 분기 |
+| `presentation/` | 화면별 UiState·ViewModel·Compose |
+| `data/remote/` | REST 인터페이스·WebSocket 관리 |
+| `data/repository/` | 요청·응답 변환·서버 연결 |
+| `data/local/SessionManager.kt` | DataStore 사용자 정보 |
+| `data/datasource/FakeShopDataSource.kt` | 시연 상품 목록 |
+| `domain/model/` | 사용자·결과 모델·환경 지표 |
+
+현재 저장소의 단위·계측 테스트는 기본 예제 테스트입니다. 실제 QR 인식 시간·재연결·화면 회전·다중 세션 동작을 검증하는 테스트 범위로 해석하지 않습니다.

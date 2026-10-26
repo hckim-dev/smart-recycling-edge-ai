@@ -1,137 +1,94 @@
-# 🖥️ Smart Recycling Kiosk Dashboard (Qt / C++)
+# Qt 키오스크
 
-<div align="center">
+[프로젝트 소개](../README.md) · [전체 구조](../docs/architecture.md) · [TCP 규약](../docs/protocol-spec.md#tcp-jetson--qt)
 
-[![Language](https://img.shields.io/badge/Language-C%2B%2B17-00599C?logo=c%2B%2B&logoColor=white)](https://isocpp.org)
-[![Framework](https://img.shields.io/badge/Framework-Qt%205.15%20%2F%206.x-41CD52?logo=qt&logoColor=white)](https://www.qt.io)
-[![Compiler](https://img.shields.io/badge/Compiler-MinGW--w64%20%2F%20MSVC-blue)]()
-[![Streaming](<https://img.shields.io/badge/Protocol-TCP%20Binary%20(60%20FPS)-red>)]()
-[![Session](https://img.shields.io/badge/Network-WebSocket%20%26%20REST-orange)]()
-[![UI](https://img.shields.io/badge/UI-FullScreen%20Touch%20Kiosk-purple)]()
+Jetson의 영상·검사 결과와 MCU 상태를 표시하고, 회원·비회원 배출 세션을 집계하는 Qt Widgets/C++ 애플리케이션입니다. 서버와는 WebSocket 이벤트·REST 정산 요청으로 연결합니다.
 
-**NVIDIA Jetson 엣지 AI와 연동되어 60 FPS 고속 비전 스트림 및 BBox를 렌더링하고, 중앙 서버와 실시간 세션을 동기화하는 C++/Qt 키오스크 대시보드**
-
-</div>
-
----
-
-## 📌 핵심 엔지니어링 강점 (Engineering Highlights)
-
-### 1. 60 FPS 저지연 바이너리 TCP 패킷 언패커 (`JetsonClient`)
-
-- **8바이트 빅엔디안 바이너리 프로토콜**: `[JPEG Size(4B)][JSON Size(4B)] + Payload` 규격을 자체 파싱하여 네트워크 대역폭 및 역직렬화 오버헤드를 극소화했습니다.
-- **버퍼 오버플로우 방어**: 패킷 손상 시 메모리 누적을 방지하는 20MB 상한 강제 플러시 및 링 버퍼 기반 메모리 재할당 최소화 설계로 프레임 드롭 없는 60 FPS 모니터링을 실현했습니다.
-
-### 2. 하드웨어 물리 인터록 카운팅 (Anti-Fraud Interlock)
-
-- **오인식 및 부정 투입 원천 차단**: 카메라가 물체를 감지했다고 바로 카운트하지 않고, **MCU의 물리적 서보 도어 개방(Rising Edge) 센서 신호**가 수신되는 순간에만 수량(+1)과 포인트를 확정합니다.
-- **도어 개방 중 중복 카운트 방지**: 도어가 열려있는 동안에는 AI 인식을 일시 홀드하여 투입 진행 중인 단일 물체의 중복 가산을 방지합니다.
-
-### 3. 2-Stage 세부 품질 검사(라벨/오염) 시각화 피드백
-
-- YOLO 1차 분류 외에, 엣지 AI의 2단계 세부 검사 결과(`pet_label`, `pet_content`)를 수신하여 라벨 미제거 또는 이물질 오염 감지 시 **즉시 적색 경고 BBox와 투입 차단 가이드 배너**를 오버레이합니다.
-
-|                                 ✅ 정상 통과 (Pass & Open)                                  |                              ⚠️ 1차 경고: 라벨 미제거 (Label Warning)                              |                            🚫 2차 경고: 복합 오염 감지 (Stain Warning)                             |
-| :-----------------------------------------------------------------------------------------: | :------------------------------------------------------------------------------------------------: | :------------------------------------------------------------------------------------------------: |
-|    <img src="../docs/assets/images/kiosk_detect_pass.png" width="280" alt="Kiosk Pass"/>    | <img src="../docs/assets/images/kiosk_inspect_label_warning.png" width="280" alt="Label Warning"/> | <img src="../docs/assets/images/kiosk_inspect_stain_warning.png" width="280" alt="Stain Warning"/> |
-| • 객체 인식 및 분류 안정화<br/>• 녹색 BBox & 투입구 개방 안내<br/>• MCU 도어 서보 즉각 구동 |    • 비닐 라벨 미제거 검출<br/>• 황색 경고 배너 오버레이<br/>• "라벨을 떼고 넣어주세요" 가이드     |   • 잔여 음료 및 내부 오염 검출<br/>• 적색 경고 배너 오버레이<br/>• "내용물을 비우고 헹궈주세요"   |
-
-### 4. 시각적 플리커링(Flickering) 방지 및 디바운스 최적화
-
-- **BBox 홀드 유예 (`m_missCount`)**: 순간적인 조명 반사나 모션 블러로 1~2프레임 미검출 시 직전 박스를 부드럽게 유지하여 화면 깜빡임을 100% 제거했습니다.
-- **안정 인식 디바운스 동기화**: `STABLE_FRAME_THRESHOLD = 25`(약 0.8초) 연속 인식 시에만 확정 상태 배너로 전환하여 Jetson FSM 도어 개방과 완벽히 동기화됩니다.
-
----
-
-## 🔄 3단계 상태머신 화면 흐름 (Kiosk Screen Flow)
+## 화면과 사용자 흐름
 
 ```mermaid
 stateDiagram-v2
-    [*] --> IDLE: 기기 부팅 (FullScreen)
-
-    IDLE --> RECYCLE: 모바일 QR 스캔 (WS: USER_AUTHENTICATED)
-
-    state RECYCLE {
-        [*] --> Analyzing: AI 60 FPS 스트림 수신
-        Analyzing --> Confirmed: 동일 품목 25프레임 유지
-        Confirmed --> DoorOpen: MCU 도어 개방 신호 수신 (+1 카운트)
-        DoorOpen --> Analyzing: 도어 폐쇄 (다음 품목 대기)
-    }
-
-    RECYCLE --> RESULT: 투입 완료 버튼 클릭 (POST /api/recycle/submit)
-    RECYCLE --> IDLE: 투입 취소 (키오스크 버튼 or 모바일 앱 원격 취소)
-
-    RESULT --> IDLE: 정산 완료 (숫자 롤링 애니메이션 후 10초 타임아웃 복귀)
+    [*] --> Idle
+    Idle --> Recycling: QR 연결 또는 비회원 시작
+    Recycling --> Result: 완료 버튼 · REST 제출
+    Recycling --> Idle: 로컬 또는 원격 취소
+    Result --> Idle: 확인 또는 10초 경과
 ```
 
-| 화면 (Page)                   | 구현 특징                   | 사용자 경험 (UX)                                                           |
-| ----------------------------- | --------------------------- | -------------------------------------------------------------------------- |
-| **대기 화면 (`IdlePage`)**    | `qrcodegen` (C++ 내장 엔진) | 딥링크(`smartrecycle://...`) QR 코드를 메모리에서 즉시 동적 벡터 렌더링    |
-| **배출 화면 (`RecyclePage`)** | `QPainter` 커스텀 오버레이  | 60 FPS 비전 영상, BBox, 안내 배너 및 누적 에코 트리 단계별 성장 애니메이션 |
-| **결과 화면 (`ResultPage`)**  | `QTimer` 이징 애니메이션    | 획득 포인트 및 탄소 저감량 숫자 롤링 연출, 축하 효과 및 10초 자동 복귀     |
+| 화면 | 역할 |
+| --- | --- |
+| IdlePage | 키오스크 ID가 포함된 QR 생성, 비회원 시작 |
+| RecyclePage | 영상·BBox·검사 사유, 도어 안내, 수량·보상, 나무 성장 표시 |
+| ResultPage | 세션 결과와 보상 표시, 확인·자동 복귀 |
 
----
+| 정상 인식 | 라벨 검사 불합격 | 내용물 검사 불합격 |
+| --- | --- | --- |
+| <img src="../docs/assets/images/kiosk_detect_pass.png" width="280" alt="정상 인식과 도어 개방 안내"/> | <img src="../docs/assets/images/kiosk_inspect_label_warning.png" width="280" alt="라벨 부착 검사 경고"/> | <img src="../docs/assets/images/kiosk_inspect_stain_warning.png" width="280" alt="내용물 검사 경고"/> |
 
-## 🌐 시스템 네트워크 연동 사양
+이미지는 시연 화면입니다. 라벨과 내용물은 순차 경고 등급이 아니라 서로 다른 검사 태스크입니다. 현재 공통 경고 배너와 BBox 상세 사유의 표시는 [RecyclePage](ui/pages/recycle_page.cpp)를 기준으로 합니다.
 
-| 대상 시스템          | 프로토콜   | 엔드포인트 (기본값)                                    | 역할                                                |
-| -------------------- | ---------- | ------------------------------------------------------ | --------------------------------------------------- |
-| **Jetson Orin Nano** | Binary TCP | `10.10.15.48:9000`                                     | 60 FPS JPEG 영상 프레임 + BBox 추론 메타데이터 수신 |
-| **FastAPI Backend**  | WebSocket  | `ws://10.10.15.8:8000/ws/kiosk/{bin_id}/kiosk`         | QR 로그인 세션 개시 및 양방향 세션 취소 동기화      |
-| **FastAPI Backend**  | HTTP REST  | `POST /api/recycle/submit`<br>`POST /api/kiosk/cancel` | 최종 배출 품목/포인트 영속화 및 취소 처리           |
+## 영상과 상태 수신
 
----
+[JetsonClient](network/jetson_client.cpp)는 QTcpSocket 데이터를 누적하고 `[JPEG 길이 4B][JSON 길이 4B]` 헤더를 읽습니다. 헤더·전체 페이로드가 도착한 뒤 JPEG와 JSON을 해석합니다.
 
-## 📁 디렉터리 구조 (Directory Structure)
+- 길이 필드는 Big-Endian uint32입니다.
+- Qt 수신 측 상한은 이미지 10MiB, JSON 64KiB, 누적 버퍼 20MiB입니다.
+- 비정상 길이·버퍼 초과 시 버퍼를 비웁니다. 매직 바이트 기반 재동기화는 없습니다.
+- QPixmap 디코딩·QPainter 오버레이는 UI 이벤트 루프에서 수행합니다.
+- JSON은 `fromRawData`로 슬라이스 참조를 전달하지만, 이미지 디코딩·렌더링 전체가 Zero-Copy인 것은 아닙니다.
 
-```
-pc_dashboard/
-├── configs/         # 전역 설정(app_config.h), UI 컬러 토큰(theme_constants.h)
-├── controllers/     # 세션 제어기(recycle_session_controller), 에코 트리(eco_tree_controller)
-├── network/         # Jetson TCP 클라이언트(jetson_client), 서버 WS/REST 클라이언트(server_client)
-├── ui/              # MainWindow 및 3대 화면(idle_page, recycle_page, result_page)
-├── utils/           # 내장 C++ QR 생성 라이브러리(qrcodegen.hpp/.cpp)
-├── resources/       # GIF 애니메이션 및 아이콘 리소스 (.qrc 번들링)
-├── pc_dashboard.pro # Qt qmake 빌드 설정 (C++17, MinGW -O3 최적화)
-└── main.cpp         # 키오스크 전체화면 모드 진입점
-```
+## 집계와 정산
 
----
+[RecycleSessionController](controllers/recycle_session_controller.cpp)는 활성 세션에서 도어의 `CLOSED → OPEN` 전이마다 품목 수량을 한 번 증가시킵니다. MCU의 실제 도착·낙하 센서를 사용하지 않습니다.
 
-## 🚀 빌드 및 실행 가이드 (Build & Run)
+세션 시작 시 이전 상태를 CLOSED로 초기화하므로, 첫 메타데이터가 이미 OPEN이어도 품목을 알 수 있으면 한 번 집계합니다. 연결 중단 중 놓친 개폐 이력을 복원하는 기능은 없습니다.
 
-### 1. 네트워크 접속 IP/Port 설정
+검출 누락 시 최대 3회 직전 표시를 유지하고, 정상 검출 25회 이상이면 확인 배너를 요청합니다. 이 카운터는 Jetson의 개방 조건과 별도이며, 도어 구동을 직접 결정하지 않습니다.
 
-[`configs/app_config.h`](configs/app_config.h)에서 연동할 Jetson 보드 및 중앙 서버의 주소를 설정합니다:
+수량·포인트·탄소 환산량은 [app_config.h](configs/app_config.h)의 `SessionSummary`·`ITEM_METAS`에서 계산합니다. 완료 시 결과 화면을 먼저 표시하고 서버에 제출합니다. 서버 응답 실패의 사용자 안내·재시도·중복 제출 방지는 후속 과제입니다.
 
-```cpp
-namespace Config {
-    constexpr char DEFAULT_JETSON_IP[]    = "10.10.15.48"; // Jetson TCP IP (로컬: "127.0.0.1")
-    constexpr quint16 JETSON_PORT         = 9000;          // Jetson 60 FPS Binary TCP 포트
-    constexpr char DEFAULT_BACKEND_HOST[] = "10.10.15.8";  // FastAPI 서버 IP (로컬: "127.0.0.1")
-    constexpr quint16 DEFAULT_BACKEND_PORT= 8000;          // FastAPI REST/WS 포트
-}
-```
+QR 영역 직접 클릭은 앱 없이 화면을 시연하는 경로입니다. 이 경로는 실제 서버 사용자 ID를 전달하지 않으므로, 회원처럼 표시되더라도 실제 계정 적립을 확인하는 용도로 사용하지 않습니다.
 
-### 2. 빌드 및 실행 (Qt Creator / MSYS2 CLI)
+## 빌드와 실행
 
-- **Qt Creator 사용 시**: `pc_dashboard.pro` 파일을 열고 Kit(MinGW 또는 MSVC) 선택 후 **Build & Run (`Ctrl + R`)** 실행.
-- **MSYS2 UCRT64 CLI 사용 시**:
+필요 모듈은 Qt `core, gui, widgets, network, websockets`와 C++17입니다. Qt 5.15 API를 기준으로 작성되어 있으며 Qt 6 호환 빌드는 별도 확인이 필요합니다.
+
+1. [app_config.h](configs/app_config.h)의 Jetson·서버 주소와 키오스크 ID를 설정합니다.
+2. Qt Creator에서 `pc_dashboard.pro`를 열고 해당 Qt Kit로 Build & Run 합니다.
+
+MSYS2 UCRT64에서 Qt 5 개발 환경을 준비하는 경우:
 
 ```bash
-# 1. 의존성 툴체인 및 패키지 설치
-pacman -S --needed mingw-w64-ucrt-x86_64-gcc mingw-w64-ucrt-x86_64-make mingw-w64-ucrt-x86_64-qt5-base mingw-w64-ucrt-x86_64-qt5-websockets
-
-# 2. qmake 설정 및 병렬 빌드
-qmake pc_dashboard.pro "CONFIG+=release"
-make -j$(nproc)
-
-# 3. 키오스크 대시보드 실행
-./build/release/pc_dashboard.exe
+pacman -S --needed \
+    mingw-w64-ucrt-x86_64-gcc \
+    mingw-w64-ucrt-x86_64-make \
+    mingw-w64-ucrt-x86_64-qt5-base \
+    mingw-w64-ucrt-x86_64-qt5-websockets
+cd pc_dashboard
+mkdir -p build
+cd build
+qmake-qt5 -v
+qmake-qt5 ../pc_dashboard.pro "CONFIG+=release"
+mingw32-make -j2
+./release/pc_dashboard.exe
 ```
 
-### 3. 키오스크 시연 및 발표 단축키 (Demo Controls)
+위 명령은 MSYS2 UCRT64 Bash 기준입니다. [Qt 5 패키지](https://packages.msys2.org/packages/mingw-w64-ucrt-x86_64-qt5-base)의 `qmake-qt5`를 명시해 Qt 6과 함께 설치된 환경에서도 버전 선택을 분명히 합니다. 버전 출력과 생성 Makefile의 실행 파일 경로를 확인합니다.
 
-- **`F11`**: **전체화면(FullScreen) ↔ 창 모드(Windowed) 토글**  
-  (시연 중 발표 슬라이드나 Jetson 터미널 창과 화면을 나란히 분할 배치할 때 유용)
-- **`Esc`**: 전체화면 상태에서 즉시 창 모드로 안전 복귀
+- `F11`: 전체화면·창 모드 전환
+- `Esc`: 전체화면에서 창 모드로 복귀
+- Pretendard는 시스템 글꼴을 사용합니다.
+- QR 생성 라이브러리는 [Nayuki QR Code Generator](utils/qrcodegen.hpp)를 소스에 포함했습니다.
+
+## 코드 안내
+
+| 위치 | 책임 |
+| --- | --- |
+| [mainwindow.cpp](ui/mainwindow.cpp) | 화면·클라이언트·세션 시그널 연결 |
+| [jetson_client.cpp](network/jetson_client.cpp) | TCP 수신·디코딩·메타데이터 전달 |
+| [server_client.cpp](network/server_client.cpp) | 서버 WS 연결, 정산·취소 REST |
+| [recycle_session_controller.cpp](controllers/recycle_session_controller.cpp) | 도어 전이 기반 집계·표시 상태 |
+| [eco_tree_controller.cpp](controllers/eco_tree_controller.cpp) | 수량에 따른 애니메이션 구간 제어 |
+| [pc_dashboard.pro](pc_dashboard.pro) | Qt 모듈·빌드 옵션·리소스 |
+
+[전체 실행 안내](../docs/getting-started.md) · [통신 필드와 오류 처리](../docs/protocol-spec.md)

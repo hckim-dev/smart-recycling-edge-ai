@@ -1,282 +1,87 @@
-# ♻️ Smart Recycling Edge AI Kiosk
+# Smart Recycling Edge AI
 
-<div align="center">
+재활용품 4종의 재질 인식과 PET 라벨·내용물 검사를 수행하고, STM32 분류 기구와 Qt 키오스크·Android 보상 흐름을 연동한 스마트 분리수거 프로젝트입니다.
 
-[![Platform](https://img.shields.io/badge/Platform-NVIDIA%20Jetson%20Orin%20Nano-76B900?logo=nvidia&logoColor=white)](https://www.nvidia.com/en-us/autonomous-machines/embedded-systems/jetson-orin/)
-[![MCU](<https://img.shields.io/badge/MCU-STM32F411xE%20(Cortex--M4)-03234B?logo=stmicroelectronics&logoColor=white>)](https://www.st.com)
-[![AI Engine](<https://img.shields.io/badge/Inference-TensorRT%2010%20(FP16)-76B900?logo=nvidia&logoColor=white>)]()
-[![Dashboard](<https://img.shields.io/badge/Kiosk-Qt%205.15%20(Qt%206%20호환)-41CD52?logo=qt&logoColor=white>)](https://www.qt.io)
-[![Backend](https://img.shields.io/badge/Backend-FastAPI%20%2F%20SQLite%20WAL-009688?logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com)
-[![Mobile](<https://img.shields.io/badge/Mobile-Android%20(Compose%20%2B%20MVI)-3DDC84?logo=android&logoColor=white>)](https://developer.android.com)
+**Jetson Orin Nano · STM32F411 · C/C++ · Python · Qt · FastAPI · Android**
 
-**NVIDIA Jetson Orin Nano 기반 초저지연 실시간 비전 AI와 STM32 베어메탈 분류 제어가 결합된**  
-**End-to-End 스마트 무인 재활용 자원 회수 에코시스템**
+## 통합 시연
 
-<br/>
+[전체 시연 영상](https://github.com/user-attachments/assets/a7b54b54-8b72-4728-b04c-dced2dc5ca10) · [시스템 구조](docs/architecture.md) · [실행 안내](docs/getting-started.md) · [기술 문서](docs/README.md)
 
-[Demo](https://github.com/user-attachments/assets/a7b54b54-8b72-4728-b04c-dced2dc5ca10)
+<img src="docs/assets/demo/demo_preview.gif" width="800" alt="Qt 키오스크, Android 앱, 분류 기구의 동작을 함께 보여주는 통합 시연"/>
 
-<br/>
+QR로 사용자를 연결하고, 재질·PET 상태 판정에 따라 분류 기구를 구동합니다. 키오스크에서 투입을 마치면 집계 결과를 서버에 저장하고 앱에 전달합니다. 비회원 배출도 지원합니다.
 
-[![Final Report](https://img.shields.io/badge/PDF-최종_결과보고서_다운로드-blue?style=for-the-badge&logo=adobeacrobatreader&logoColor=white)](docs/presentation/smart_recycling_final_report.pdf)
+## 팀 구성과 개발 역할
 
-</div>
+- **김호철 · 시스템 소프트웨어:** 아키텍처·통신 프로토콜 설계, Jetson 추론·도어 제어 파이프라인, Qt·서버·Android 연동 및 통합
+- **권민지 · AI 모델:** 재질 검출 모델 학습·비교, PET 라벨·내용물 검사 모델 구성
+- **석민정 · MCU 제어:** 초음파 계측·필터링, 서보 동작 순서와 제어 파라미터 튜닝
+- **현수근 · 하드웨어:** 키오스크 기구 설계·제작, 서보 브래킷과 배출 통로 보강
 
----
-
-## 📖 프로젝트 개요 (Overview)
-
-**Smart Recycling Edge AI**는 재활용 쓰레기의 투입부터 AI 재질 판별, 기구 분류, 실시간 모니터링, 사용자 보상(포인트 적립)까지 전 과정을 자동화한 지능형 분리수거 키오스크 솔루션입니다.
-
-- **비전 AI 엣지 추론**: 엣지 디바이스(NVIDIA Jetson)에서 TensorRT 10 기반 2-Stage 검사 파이프라인(객체 검출 + 크롭 영역 오염·라벨 검사)을 초당 60 FPS로 실시간 수행합니다.
-- **오투입 방지 물리 인터록**: STM32F411 펌웨어가 하단 분류 모터의 도착 완료를 확인한 뒤에만 투입구를 개방하여 기계적 오분류 결함을 원천 차단합니다.
-- **실시간 데이터 동기화**: 60 FPS 바이너리 TCP 스트림(Jetson ➔ Qt)과 양방향 WebSocket(Server ↔ Mobile/Kiosk)을 통해 전 단계를 밀리초 단위로 동기화합니다.
-- **데이터 무결성 & 리워드**: SQLite 원자적 `RETURNING` 트랜잭션으로 포인트 이중 지급(Double Spending) 및 동시성 락 경합을 방어합니다.
-
-### 📷 시스템 실물 및 핵심 UI 프리뷰
-
-|                         🤖 키오스크 기구 & 초음파 센서 실물                         |                        🖥️ AI 실시간 검출 및 도어 개방 UI                         |
-| :---------------------------------------------------------------------------------: | :------------------------------------------------------------------------------: |
-| <img src="docs/assets/images/hardware_kiosk.jpg" width="420" alt="Hardware Kiosk"/> | <img src="docs/assets/images/kiosk_detect_pass.png" width="420" alt="Kiosk UI"/> |
-|                     **4구역 수거함 & STM32 3축 서보 분류 기구**                     |                    **TensorRT 10.x 객체 검출 & 물리 인터록**                     |
-
-|                                📱 1초 QR 바인딩                                 |                                     📱 실시간 투입 정산 푸시                                      |                        📱 탄소 절감 & 에코 리워드                         |
-| :-----------------------------------------------------------------------------: | :-----------------------------------------------------------------------------------------------: | :-----------------------------------------------------------------------: |
-| <img src="docs/assets/images/mobile_03_qr_scan.png" width="260" alt="QR Scan"/> | <img src="docs/assets/images/mobile_05_recycle_complete.png" width="260" alt="Recycle Complete"/> | <img src="docs/assets/images/mobile_02_home.png" width="260" alt="Home"/> |
-|                          **CameraX 초고속 세션 연결**                           |                                   **WebSocket 즉시 결과 통보**                                    |                    **포인트 적립 & 소나무 식수 지표**                     |
-
----
-
-## 🏗 전체 시스템 아키텍처 (End-to-End Architecture)
-
-5대 핵심 서브시스템이 표준화된 프로토콜(UART, Binary TCP, REST API, WebSocket)로 유기적으로 연동됩니다.
+## 시스템 구조
 
 ```mermaid
 flowchart TB
-    subgraph MobileDevice["📱 모바일 앱 (Android / Jetpack Compose)"]
-        APP["사용자 앱<br/>• CameraX QR 인증<br/>• MVI/UDF 클린 아키텍처<br/>• 지수 백오프 WebSocket"]
-    end
-
-    subgraph CentralServer["⚙️ 중앙 백엔드 (FastAPI / Python)"]
-        SERVER["FastAPI 서버 (포트 8000)<br/>• 1:1 WebSocket 세션 브로커<br/>• SQLite WAL 원자적 트랜잭션<br/>• 포인트/탄소저감 정산"]
-    end
-
-    subgraph KioskUI["🖥️ 키오스크 대시보드 (Qt 5.15 / C++)"]
-        QT["Qt Kiosk UI<br/>• 60 FPS 바이너리 TCP 파서<br/>• Rising Edge 도어 인터록 카운팅<br/>• 2단계 품질 경고 오버레이"]
-    end
-
-    subgraph EdgeDevice["🧠 엣지 AI 디바이스 (NVIDIA Jetson Orin Nano)"]
-        TRT["TensorRT 10 파이프라인<br/>• YOLOV11/V8 Dual TensorRT<br/>• Host Pinned Zero-Alloc 메모리<br/>• 드롭아웃 내결함 FSM (miss_tol=3)"]
-    end
-
-    subgraph MCU["⚡ 액추에이터 제어 (STM32F411xE)"]
-        STM["베어메탈 펌웨어 (96MHz)<br/>• 3채널 서보 순차 인터록<br/>• 3단계 초음파 적재율 필터링<br/>• 10초 자동 폐쇄 Failsafe"]
-    end
-
-    %% 사용자 인증 및 세션 연동
-    APP -- "1. QR 스캔 (REST Bind)" --> SERVER
-    SERVER -- "2. USER_AUTHENTICATED (WS)" --> QT
-
-    %% AI 분석 및 실시간 스트리밍
-    TRT -- "3. 60 FPS Binary TCP (JPEG+BBox)" --> QT
-    TRT -- "4. $DOOR_OPEN / $DOOR_CLOSE (UART)" --> STM
-    STM -- "5. $DOOR_STATE / $BIN (UART)" --> TRT
-
-    %% 배출 완료 및 정산
-    QT -- "6. 정산 제출 (REST /recycle/submit)" --> SERVER
-    SERVER -- "7. RECYCLE_COMPLETE (WS)" --> APP
+    Jetson["Jetson · TensorRT<br/>검출 · PET 검사 · 개폐 판단"] -->|"TCP: JPEG + JSON"| Qt["Qt 키오스크<br/>화면 · 사용자 세션 · 집계"]
+    Jetson <-->|"UART: 명령 · 상태"| MCU["STM32F411<br/>서보 3축 · 초음파 4채널"]
+    Qt <-->|"REST · WebSocket"| Server["FastAPI · SQLite<br/>이력 · 계정 포인트"]
+    Server <-->|"REST · WebSocket"| App["Android 앱<br/>QR · 결과 · 이력"]
 ```
 
----
+| 구성 | 책임 | 상세 문서 |
+| --- | --- | --- |
+| Jetson | 4종 재질 검출, PET 상태 검사, 자동 개폐 판단, 영상·상태 전송 | [엣지 파이프라인](edge_jetson/README.md) |
+| STM32 | 분류 경로·도어 구동, 적재율 계측, 최대 개방 시간 제한 | [MCU 펌웨어](mcu_firmware/README.md) |
+| Qt | 영상·검사 결과 표시, 사용자 세션, 수량·포인트 집계 | [키오스크](pc_dashboard/README.md) |
+| FastAPI | 사용자·배출 이력 저장, 포인트 갱신, 기기 간 이벤트 중계 | [서버](server/README.md) |
+| Android | QR 연결, 배출 결과·이력 조회, 포인트 사용 시연 | [모바일 앱](mobile_app/README.md) |
+| AI 실험 | 데이터 준비, 모델 비교·평가, ONNX 내보내기 | [학습과 평가](ai_models/Readme.md) |
 
-## 🧩 서브시스템별 핵심 엔지니어링 특징 (The 5 Pillars)
+## 핵심 설계
 
-| 서브시스템                       | 기술 스택                                                    | 핵심 역할 및 엔지니어링 하이라이트                                                                                                                                                                           |            세부 문서             |
-| :------------------------------- | :----------------------------------------------------------- | :----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :------------------------------: |
-| **[edge_jetson](edge_jetson)**   | Jetson Orin Nano, TensorRT 10, CUDA, OpenCV                  | • TensorRT V3 비동기 Host Pinned Zero-Alloc 파이프라인<br/>• 2-Stage Crop & Inspection (오염·라벨) 및 Fallback Graceful Bypass<br/>• 드롭아웃 프레임 보존 FSM (`miss_tolerance: 3`, `conf: 0.70`)            | [README](edge_jetson/README.md)  |
-| **[mcu_firmware](mcu_firmware)** | STM32F411xE, Cortex-M4 Hard FPU, C (Bare-Metal)              | • 오투입 방지 물리 순차 인터록 (하단 2축 도착 확인 후 상단 개방)<br/>• 3단계 초음파 필터 (Drop Blanking ➔ Outlier Rejection ➔ Deadband)<br/>• 120°/s 소프트웨어 램프 구동 및 10s 자동 폐쇄 Failsafe          | [README](mcu_firmware/README.md) |
-| **[pc_dashboard](pc_dashboard)** | Qt 5.15 (Qt 6 호환), C++17, QPainter, QWebSocket, QTcpSocket | • 60 FPS 바이너리 TCP 스트림 역직렬화 (Magic Byte & 메모리 재사용)<br/>• 도어 개방 Rising Edge 물리 인터록 카운팅 (영상 중복 카운트 방어)<br/>• 2단계 품질 경고 오버레이 및 키오스크 시연 모드 (`F11`/`Esc`) | [README](pc_dashboard/README.md) |
-| **[server](server)**             | FastAPI, Python 3.10+, aiosqlite (WAL), Pydantic V2          | • Clean 3-Tier 계층 분리 및 논블로킹 비동기 DB I/O<br/>• SQLite 원자적 `RETURNING` 트랜잭션 (Lost Update & Double Spending 방어)<br/>• `ConnectionManager` 1:1 룸 관리 및 좀비 WebSocket 세션 퇴출           |    [README](server/README.md)    |
-| **[mobile_app](mobile_app)**     | Android, Kotlin 2.x, Jetpack Compose, OkHttp, KSP            | • Clean Architecture & 단방향 데이터 흐름(MVI/UDF) 패턴<br/>• 지수 백오프(Exponential Backoff) 자동 재연결 WebSocket 클라이언트<br/>• 미인증 딥링크 보류 바인딩 UX (Hold-and-Bind Session)                   |  [README](mobile_app/README.md)  |
+### 1. 분류판을 먼저 정렬하는 MCU 제어
 
----
+상단 도어와 하단 분류판을 동시에 움직이면 통로가 정렬되기 전에 물체가 떨어질 수 있습니다. 하단 두 축의 소프트웨어 각도 램프가 끝난 뒤 상단 도어를 구동하도록 순서를 나눴습니다.
 
-## 🚀 전체 시스템 실행 방법 (Getting Started)
+서보는 120°/s 램프로 제어합니다. MCU는 개방 명령 처리 시점부터 2초 이내의 닫힘 요청을 보류하고, 10초가 지나면 자체적으로 중립 복귀를 요청합니다. 적재율에는 투입 명령 후 블랭킹, 이상치 제거 평균, 데드밴드를 적용했습니다.
 
-전체 시스템은 **중앙 서버 ➔ MCU 펌웨어 ➔ Jetson 엣지 AI ➔ 키오스크 대시보드 ➔ 모바일 앱** 순서로 구동합니다.
+[분류 제어 구현](mcu_firmware/recycle.c) · [센서 필터](mcu_firmware/bin_filter.c) · [설계 설명](docs/troubleshooting.md#분류-통로의-선행-정렬)
 
-```
-[권장 구동 순서]
-1. Server (중앙 통신망 개방) ──> 2. MCU (센서·모터 준비) ──> 3. Jetson (AI 파이프라인)
-                                                                  │
-4. Mobile App (QR 인증 준비) <── 5. PC Dashboard (화면 스트림 수신) ┘
-```
+### 2. 추론 장치와 화면을 분리한 영상 전송
 
----
+Jetson은 추론과 제어를 담당하고 Qt가 화면을 렌더링합니다. JPEG와 같은 프레임의 검출 결과를 `8바이트 길이 헤더 + JPEG + JSON`으로 묶어 전송합니다. Qt는 TCP 수신 조각을 누적하고 전체 메시지가 도착했을 때 해석합니다.
 
-### Step 1. 중앙 백엔드 서버 구동 (`server/`)
+카메라 캡처와 UART 수신은 별도 스레드에서 처리합니다. TensorRT 입출력 버퍼는 초기화 때 확보해 재사용하며, 추론 결과를 사용할 때 CUDA 스트림을 동기화합니다.
 
-FastAPI 서버를 실행하여 REST API 엔드포인트와 WebSocket 브로커를 활성화합니다.
+[송신 구현](edge_jetson/stream/socket_server.py) · [수신 구현](pc_dashboard/network/jetson_client.cpp) · [통신 규약](docs/protocol-spec.md)
 
-```bash
-cd server
+### 3. 인식 흔들림과 장치 상태를 고려한 집계
 
-# 1. 가상환경 생성 및 의존성 패키지 설치
-python -m venv .venv
-# Windows: .venv\Scripts\activate / Linux: source .venv/bin/activate
-pip install -r requirements.txt
+Jetson은 인식 유지 시간과 유효 프레임 수를 함께 확인하고, 짧은 검출 누락은 유예합니다. PET에는 재질 검출 후 라벨·내용물 분류기를 추가 적용합니다.
 
-# 2. 서버 실행 (포트 8000)
-python main.py
-```
+Qt는 검출 프레임마다 수량을 올리는 대신, 활성 사용자 세션에서 MCU가 보고한 도어 상태의 `CLOSED → OPEN` 전이마다 한 번 집계합니다. 집계한 수량·보상을 REST로 제출하고, 서버는 앱에 완료 이벤트를 보냅니다.
 
-> **Swagger API Docs**: 브라우저에서 `http://localhost:8000/docs` 접속을 통해 엔드포인트 동작 확인 가능.
+[도어 FSM](edge_jetson/core/door_controller.py) · [집계 구현](pc_dashboard/controllers/recycle_session_controller.cpp) · [전체 상태 흐름](docs/architecture.md)
 
----
+## 구현 결과와 확장 과제
 
-### Step 2. MCU 펌웨어 플래시 (`mcu_firmware/`)
+- 종이·캔·PET·비닐 분류, PET 라벨·내용물 검사, 3축 분류 기구와 4구역 적재율 표시를 연결했습니다.
+- 회원 QR 연결·비회원 이용·완료 정산·양측 세션 취소·앱 배출 이력·포인트 차감 흐름을 구성했습니다.
+- PET 분류기 저장 평가 결과는 각 Test 61장 기준 라벨 61/61, 내용물 56/61 정분류입니다. [평가 조건과 모델별 결과](ai_models/Readme.md#저장된-평가-결과)를 함께 확인할 수 있습니다.
 
-STM32F411 보드에 ST-Link를 연결하고 펌웨어를 빌드 및 다운로드합니다.
+현재 수량 집계는 도어 제어 상태를 기준으로 하며 실제 낙하·서보 도착을 센서로 확인하지 않습니다. 운영 확장 과제는 실제 투입 확인, 사용자·기기 인증, 중복 정산 방지와 정산 트랜잭션 통합입니다. 실제 카메라 FPS와 화면 표시까지의 지연은 별도 측정이 필요합니다.
 
-```bash
-cd mcu_firmware
+## 문서와 실행
 
-# 1. 펌웨어 바이너리 빌드 (ARM GCC)
-make
+- [전체 시스템 실행 안내](docs/getting-started.md): 장치·모델 준비, 주소 설정, 구동 순서와 확인 절차
+- [시스템 아키텍처](docs/architecture.md): 실행 구조, 데이터 소유권, 정상·취소 흐름과 구현 범위
+- [통신 프로토콜](docs/protocol-spec.md): TCP·UART·REST·WebSocket 메시지 명세
+- [설계와 트러블슈팅](docs/troubleshooting.md): 영상 전송, 모터 제어, 센서·시리얼 처리
+- [프로젝트 발표자료](docs/presentation/smart_recycling_final_report.pdf): 발표 당시 구성·실험·시연 기록
 
-# 2. ST-Link(SWD) 타깃 플래시 라이팅 및 리셋
-make run
-```
+모델 가중치·TensorRT 엔진·원본 데이터는 저장소에 포함하지 않습니다. 실행에 필요한 파일과 준비 조건은 각 모듈 문서에 정리했습니다. 발표자료의 과거 수치와 현재 코드 설정·저장된 실험 출력은 구분해 표기합니다.
 
-> 정상 구동 시 서보 모터 3개가 중립 각도로 정렬되고 초음파 센서 4채널이 계측을 시작합니다.
+## 외부 코드와 출처
 
----
-
-### Step 3. Jetson 엣지 AI 파이프라인 구동 (`edge_jetson/`)
-
-NVIDIA Jetson Orin Nano 보드에서 카메라 캡처, TensorRT 10 추론 및 TCP/UART 브로드캐스트를 시작합니다.
-
-```bash
-cd edge_jetson
-
-# 1. JetPack 가상환경 활성화 및 패키지 확인
-source .venv/bin/activate
-pip install -r requirements.txt
-
-# 2. STM32 시리얼 포트(/dev/ttyACM0) 영구 권한 1회 설정 (Permission Denied 방어)
-echo 'KERNEL=="ttyACM*", MODE="0666"' | sudo tee /etc/udev/rules.d/99-ttyacm.rules
-sudo udevadm control --reload-rules && sudo udevadm trigger
-sudo usermod -aG dialout $USER
-
-# 3. 메인 AI 파이프라인 실행
-python3 main.py
-```
-
-- 터미널에서 **`q`** 키를 누르면 비차단 키 핸들러를 통해 카메라/시리얼/소켓 자원을 안전하게 해제(Graceful Shutdown)합니다.
-
----
-
-### Step 4. PC 키오스크 대시보드 구동 (`pc_dashboard/`)
-
-[`configs/app_config.h`](pc_dashboard/configs/app_config.h)에서 Jetson IP(`DEFAULT_JETSON_IP: 9000`)와 서버 IP(`DEFAULT_BACKEND_HOST: 8000`)를 설정한 후 빌드 및 실행합니다.
-
-```bash
-cd pc_dashboard
-
-# 1. MSYS2 UCRT64 또는 Qt 환경에서 빌드 (Qt Creator에서는 .pro 파일 열고 바로 실행 가능)
-qmake pc_dashboard.pro "CONFIG+=release"
-make -j$(nproc)
-
-# 2. 대시보드 실행
-./build/release/pc_dashboard.exe
-```
-
-- **단축키 안내**:
-  - `F11`: **전체화면 ↔ 창 모드 토글** (시연 및 모니터링 환경에 맞춰 분할 배치)
-  - `Esc`: 창 모드로 즉시 복귀
-
----
-
-### Step 5. 모바일 앱 실행 및 연동 (`mobile_app/`)
-
-[`Constants.kt`](mobile_app/app/src/main/java/com/hocheol/smartrecyclingedgeai/utils/Constants.kt)에서 `BASE_URL = "http://<SERVER_IP>:8000/"`를 설정한 후 Android 기기에 배포합니다.
-
-```bash
-cd mobile_app
-
-# 1. 디버그 APK 빌드 및 연결된 기기 설치 (Android Studio에서 실행하거나 CLI 사용)
-./gradlew assembleDebug
-./gradlew installDebug
-```
-
-- **E2E 딥링크 단독 테스트 (ADB)**:
-  ```bash
-  adb shell am start -a android.intent.action.VIEW -d "smartrecycle://kiosk/auth?bin_id=1"
-  ```
-- **모바일 기기 없는 E2E 서버 테스트 (Mock 클라이언트)**:
-  ```bash
-  python server/tests/mock_mobile_client.py
-  ```
-
----
-
-## 📂 프로젝트 디렉터리 구조 (Directory Structure)
-
-```plaintext
-smart-recycling-edge-ai/
-├── edge_jetson/             # NVIDIA Jetson Orin Nano TensorRT 10 엣지 AI
-│   ├── configs/             # AI 모델, 카메라, 시리얼, TCP 소켓 설정
-│   ├── core/                # 2-Stage 검사기, FSM 도어 컨트롤러, TRT 엔진
-│   └── stream/              # 60 FPS Binary TCP 소켓 서버 및 UART 컨트롤러
-├── mcu_firmware/            # STM32F411xE 베어메탈 펌웨어
-│   ├── recycle.c            # 3축 모터 순차 인터록 및 도어 FSM
-│   ├── bin_filter.c         # 3단계 초음파 적재율 필터링 알고리즘
-│   └── servo.c              # 120°/s 소프트웨어 각속도 램프 제어
-├── pc_dashboard/            # Qt 5.15 (Qt 6 호환) / C++ 키오스크 GUI 애플리케이션
-│   ├── network/             # 60 FPS Binary TCP 스트림 언패커 & WebSocket 클라이언트
-│   ├── ui/                  # QPainter 렌더러, 품질 경고 오버레이, F11 풀스크린
-│   └── pc_dashboard.pro     # Qt 빌드 설정 파일
-├── server/                  # FastAPI 중앙 관리 및 포인트 정산 백엔드
-│   ├── app/routers/         # REST API 및 WebSocket 엔드포인트
-│   ├── app/services/        # 비즈니스 로직 및 1:1 WebSocket 룸 관리
-│   └── app/repositories/    # SQLite WAL 원자적 SQL 트랜잭션
-├── mobile_app/              # Android 모바일 클라이언트 (Jetpack Compose)
-│   ├── app/src/main/        # Clean Architecture 레이어 (Data, Domain, Presentation)
-│   └── build.gradle.kts     # Kotlin 2.x & Compose 빌드 명세
-├── docs/                    # 종합 문서 센터 및 시연 에셋
-│   ├── assets/              # 시연 GIF(demo) 및 키오스크·모바일 UI 에셋(images)
-│   ├── presentation/        # 최종 프로젝트 결과보고서 (PDF)
-│   ├── protocol-spec.md     # 5대 서브시스템 통합 통신 프로토콜 명세서
-│   ├── troubleshooting.md   # 임베디드 & 엣지 시스템 트러블슈팅 및 신뢰성 보고서
-│   ├── network-streaming.md # 60 FPS 저지연 바이너리 스트리밍 성능 최적화 보고서
-│   └── README.md            # 문서 센터 메인 인덱스
-└── README.md                # 메인 통합 문서 (본 파일)
-```
-
----
-
-## 📚 심층 기술 문서 및 보고서 (Documents & Reports)
-
-시스템 아키텍처 및 세부 엔지니어링 구현 과정은 아래 심층 문서에서 확인할 수 있습니다.
-
-- 📄 [**최종 프로젝트 결과보고서 (Final Presentation Report)**](docs/presentation/smart_recycling_final_report.pdf): 하드웨어 기구 설계, 8종 AI 모델 벤치마크, 2-Stage 정밀도 및 시연 평가 총괄 리포트 (PDF)
-- 📡 [**통합 통신 프로토콜 명세서 (Protocol Specification)**](docs/protocol-spec.md): Jetson-Qt Binary TCP, Jetson-MCU UART, Server WebSocket 및 REST API 4개 계층 통신 규격
-- 🛠️ [**임베디드 & 엣지 트러블슈팅 보고서 (Troubleshooting & Reliability)**](docs/troubleshooting.md): 서보 돌입 전류 BOR 방지, Linux DTR 리셋 방어, 초음파 센서 85% 블로킹 감축, UART ORE 락업 및 udev 시리얼 권한 영구화 해결기
-- ⚡ [**60 FPS 네트워크 스트리밍 성능 최적화 (Network Streaming Optimization)**](docs/network-streaming.md): X11 포워딩 병목 극복, 8B 바이너리 헤더 패킷화 및 프레임당 14.1ms 초저지연 달성 과정
-
----
-
-## 👥 팀원 및 역할 (Team Members & Responsibilities)
-
-| 이름       | 담당 서브시스템                      | 주요 개발 영역                                                                                                                                                                                                                                     |
-| :--------- | :----------------------------------- | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **김호철** | **System Architect & Full Pipeline** | • 전 서브시스템(Jetson/Qt/Server/App/MCU) 소프트웨어 아키텍처 설계 및 통합 검증<br/>• TensorRT 10 비동기 파이프라인 및 도어 인터록 FSM 드롭아웃 유예 최적화<br/>• Qt 60 FPS 바이너리 스트리밍 및 BBox 디바운스, SQLite 원자적 포인트 트랜잭션 구현 |
-| **권민지** | **Edge AI Model & Inspection**       | • Detection 모델 8종 성능 벤치마크 및 오염/라벨 검사 2-Stage 모델 최적화                                                                                                                                                                           |
-| **석민정** | **MCU Control & Filtering**          | • STM32 초음파 센서 거리 계측 캘리브레이션 및 서보 모터 동작 순서 튜닝                                                                                                                                                                             |
-| **현수근** | **Hardware & Mechanics**             | • 키오스크 하드웨어 기구물 설계, 서보 모터 브래킷 및 배출 통로 기구 보강                                                                                                                                                                           |
-
----
-
-## 📄 라이선스 (License)
-
-This project is licensed under the [MIT License](LICENSE).
+QR 생성에는 [Nayuki QR Code Generator](pc_dashboard/utils/qrcodegen.hpp)를 사용하며, STM32/CMSIS 헤더와 함께 원본 라이선스·저작권 표기를 유지합니다. 저장소 전체에 적용하는 별도 라이선스 파일은 현재 없습니다.

@@ -1,22 +1,23 @@
-# Credential safety
+# 자격 증명 관리와 Secret Scan
 
-Never commit real passwords, server secrets, access tokens, private keys, or signing stores.
-Use environment variables, CI secrets, or an ignored local configuration file. Commit only
-empty example files. API/client keys in an APK can be extracted: configure provider restrictions
-and keep server credentials on a trusted server.
+[문서 목록](README.md)
 
-Install [Gitleaks v8.30.1](https://github.com/gitleaks/gitleaks/releases/tag/v8.30.1).
-Before committing, run `gitleaks git . --pre-commit --staged --config .gitleaks.toml --redact=100`.
-For an independent full audit, run `gitleaks git . --log-opts="--all --full-history -m" --config .gitleaks.toml --redact=100`.
-Review findings by their use, including low-entropy passwords and configuration that scanners miss.
+실제 비밀번호·토큰·서버 비밀키·서명 키스토어는 저장소에 추가하지 않습니다. 필요한 값은 환경변수·CI secrets·Git에서 제외한 로컬 설정에 보관하고, 예시는 실제 값 없이 작성합니다. 앱에 포함한 API 키는 추출 가능하므로 제공자의 사용 제한과 서버 측 비밀값을 구분합니다.
 
-The CI check scans a tracked-file snapshot (including files matched by .gitignore) and new
-commits. It does not exempt old credential values or use a secret-containing baseline.
-For a new branch without a base SHA, it scans the final tree and latest commit; the full-history
-command above is still required for a historical audit. Make the CI check required in branch rules,
-and enable GitHub secret scanning and push protection where available.
+## 검사
 
-If a real credential was committed, remove it from current code and revoke/rotate it in the
-provider console. Deleting a file or adding .gitignore does not remove history. Coordinate any
-history rewrite and force push with every collaborator; do not perform them automatically.
-Do not print credential values in logs, reports, issue descriptions, or commit messages.
+[CI 워크플로](../.github/workflows/secret-scan.yml)는 체크섬을 확인한 Gitleaks v8.30.1로 추적 파일 스냅샷과 새 커밋을 검사합니다. 규칙은 [.gitleaks.toml](../.gitleaks.toml)에 있습니다.
+
+독립적인 전체 이력 검사:
+
+```bash
+gitleaks git . --log-opts="--all --full-history -m" --config .gitleaks.toml --redact=100
+```
+
+현재 파일 검사만으로 과거 커밋까지 확인한 것은 아닙니다. 스캐너 결과 외에도 설정 파일·로그·이미지에 실제 자격 증명이 들어가는지 검토합니다. 검사 결과를 공유할 때도 값은 출력하지 않습니다.
+
+## 노출 시 처리
+
+현재 코드에서 제거하고 제공자 측에서 폐기·재발급합니다. 파일 삭제나 .gitignore 추가는 Git 이력에서 값을 제거하지 않습니다. 이력 재작성·강제 push가 필요하면 협업자와 별도로 조율합니다.
+
+저장소의 [.gitignore](../.gitignore)는 로컬 설정·서명 자료·DB·모델 산출물 등을 제외합니다. GitHub의 보호 설정과 CI 통과 여부는 저장소 운영 단계에서 확인합니다.

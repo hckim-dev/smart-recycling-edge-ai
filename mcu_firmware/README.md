@@ -1,148 +1,115 @@
-# Smart Recycling MCU Firmware
+# STM32 분류 제어 펌웨어
 
-[![MCU](https://img.shields.io/badge/MCU-STM32F411xE-03234B?logo=stmicroelectronics&logoColor=white)](https://www.st.com/en/microcontrollers-microprocessors/stm32f411.html)
-[![Core](https://img.shields.io/badge/Core-Cortex--M4%20%4096MHz-blue?logo=arm&logoColor=white)](https://developer.arm.com/Processors/Cortex-M4)
-[![FPU](<https://img.shields.io/badge/FPU-FPv4--SP--D16%20(Hard--ABI)-00599C>)]()
-[![Architecture](https://img.shields.io/badge/Architecture-Bare--Metal%20Super%20Loop-success)]()
-[![Toolchain](https://img.shields.io/badge/Toolchain-arm--none--eabi--gcc-orange)]()
-[![Flash](<https://img.shields.io/badge/Flash-ST--Link%20V2%20(SWD)-lightgrey>)]()
+[프로젝트 소개](../README.md) · [전체 구조](../docs/architecture.md) · [UART 규약](../docs/protocol-spec.md#uart-jetson--stm32)
 
-> **ARM Cortex-M4 기반 실시간 액추에이터 제어 및 3단계 센서 필터링 베어메탈 펌웨어**  
-> Jetson AI 엣지 디바이스와 115200bps UART로 연동하여 3축 서보 모터(2단 분류 트리)를 오투입 없이 순차 구동하고, 4채널 초음파 센서의 적재율을 3단계 필터(블랭킹·이상치배제·데드밴드)로 정밀 계측합니다.
+STM32F411xE에서 3축 서보 분류 기구와 초음파 4채널을 제어하는 Bare-Metal C 펌웨어입니다. USART2 RX ISR은 명령 한 줄을 조립하고, Super Loop가 명령 처리·각도 램프·상태 보고를 수행합니다.
 
----
-
-## 🏗 System Architecture
-
-RTOS 오버헤드를 배제한 **논블로킹 베어메탈 슈퍼 루프(Super Loop)** 구조로 1ms SysTick과 USART2 RX 인터럽트 기반의 실시간 처리를 보장합니다. 동적 메모리 할당(`malloc`)을 전면 배제하여 힙 파편화를 원천 차단했습니다.
+## 실행 구조
 
 ```mermaid
-flowchart TD
-    subgraph JetsonEdge["Jetson Edge AI (상위 시스템)"]
-        CMD["$DOOR_OPEN / $DOOR_CLOSE / $BIN_RESET"]
-        STATUS["$DOOR_STATE / $BIN (적재율 보고)"]
-    end
-
-    subgraph MCU["STM32F411xE Super Loop (96MHz)"]
-        ISR["USART2 RX ISR<br/>(링버퍼 라인 파서)"]
-        FSM["Recycle FSM & 인터록 제어<br/>(recycle.c)"]
-        RAMP["소프트웨어 각속도 램프<br/>(servo.c / 120°/s)"]
-        FILTER["3단계 적재율 필터 파이프라인<br/>(bin_filter.c)"]
-        DBG["USART1 독립 디버그 출력<br/>(PA9/PA10)"]
-    end
-
-    subgraph Hardware["하드웨어 페리페럴"]
-        PWM["TIM3 3-CH PWM<br/>(PC6: TOP / PC7: PET·VINYL / PC8: PAPER·CAN)"]
-        SONIC["TIM4 1μs 카운터 공유<br/>(4채널 HC-SR04 초음파)"]
-    end
-
-    CMD -->|115200bps UART2| ISR
-    ISR --> FSM
-    FSM -->|순차 기구 제어| RAMP --> PWM
-    FSM -.->|낙하 시작 알림| FILTER
-    SONIC --> FILTER
-    FILTER -->|주기 텔레메트리| STATUS
-    FSM --> DBG
+flowchart TB
+    UART["USART2 RX ISR<br/>32바이트 라인 버퍼"] --> Main["Super Loop<br/>명령 · tick 기반 갱신"]
+    Tick["SysTick 1ms"] --> Main
+    Main --> Recycle["분류 순서 · 개방 타이머"]
+    Recycle --> Servo["서보 각도 램프"]
+    Servo --> PWM["TIM3 PWM 3채널"]
+    Main --> Ultra["초음파 폴링 · TIM4"]
+    Ultra --> Filter["블랭킹 · 이상치 평균<br/>데드밴드"]
+    Filter --> Report["USART2 상태 보고"]
 ```
 
----
+초음파 Echo 대기와 UART 출력에는 폴링 대기가 있습니다. Super Loop 전체가 비차단이거나 일정한 실행 주기를 보장하는 구조는 아닙니다.
 
-## 📷 키오스크 하드웨어 기구 및 센서 구성 (Hardware & Sensor Setup)
+## 클럭과 핀맵
 
-<div align="center">
-  <img src="../docs/assets/images/hardware_kiosk.jpg" width="520" alt="Hardware Kiosk"/>
-  <p><em>[키오스크 4구역 분리 수거함 및 초음파 센서 계측 하드웨어 실물]</em></p>
-</div>
+기준: [clock.c](clock.c), [option.h](option.h), [timer.c](timer.c), [ultrasonic.c](ultrasonic.c)
 
-- **4구역 독립 적재함 (PET / CAN / PAPER / VINYL)**: 각 수거함 상단에 초음파 센서(HC-SR04) 4채널이 독립 배치되어 실시간 수위를 계측합니다.
-- **2단 3축 서보 분류 기구물 (TIM3 PWM)**:
-  - **상단 (TOP)**: 투입구 개폐 플랩 (PC6)
-  - **하단 좌/우 (LOWER)**: PET ↔ VINYL 분배 가이드 (PC7), PAPER ↔ CAN 분배 가이드 (PC8)
-- **순차 인터록 연동**: 하단 분배 서보가 목표 각도에 완전히 안착(`Servo_Is_Moving() == false`)된 후 상단 도어를 개방하여 기계적 오분류 결함을 원천 방지합니다.
+| 항목 | 현재 구성 |
+| --- | --- |
+| 클럭 | HSI 16MHz → PLL SYSCLK/HCLK 96MHz, PCLK1 48MHz, PCLK2 96MHz |
+| 타이머 | APB1 타이머 96MHz 기준. TIM3 PWM 50Hz, TIM4 카운터 1µs |
+| 시스템 tick | SysTick 1ms |
+| TIM3 CH1 / PC6 | 상단 도어. 논리 각도 30° 종이·캔 / 90° 중립 / 150° PET·비닐 |
+| TIM3 CH2 / PC7 | PET·비닐 분류판. 논리 각도 130° PET / 30° 비닐 |
+| TIM3 CH3 / PC8 | 종이·캔 분류판. 논리 각도 150° 종이 / 50° 캔 |
+| USART2 / PA2·PA3 | TX·RX, 115200bps 8N1, Jetson 통신·표준 출력 |
+| USART1 / PA9·PA10 | TX·RX, 115200bps, `Dbg_Log` 디버그 출력 |
 
----
+| 수거함 | Trig | Echo |
+| --- | --- | --- |
+| 종이 | PC2 | PC3 |
+| 캔 | PC9 | PC12 |
+| PET | PC4 | PC5 |
+| 비닐 | PC10 | PC11 |
 
-## ⚡ Engineering Highlights
+서보 펄스 범위는 0.5~2.5ms이며 현재 `SERVO_INVERT`는 세 채널 모두 활성화되어 있습니다. 위 각도는 코드의 논리 각도이므로 실제 기구 방향·장착 상태와 함께 확인해야 합니다.
 
-### 1. 오투입 방지 물리 순차 인터록 (Sequential Interlock)
+<img src="../docs/assets/images/hardware_kiosk.jpg" width="320" alt="직접 제작한 4구역 수거함과 키오스크 기구 외관"/>
 
-- **문제**: 상단 투입구와 하단 분류판이 동시 회전할 경우, 하단 가이드가 목표 각도에 도달하기 전 쓰레기가 낙하하여 오분류되는 물리적 결함 발생.
-- **해결 ([recycle.c](recycle.c))**: 하단 모터 2개(PET/VINYL, PAPER/CAN)를 먼저 회전시킨 뒤, `Servo_Is_Moving()` 폴링을 통해 두 축이 **목표각에 완전히 도달한 것을 확인한 직후** 상단 TOP 도어를 개방하는 순차 인터록 FSM 구현.
+*키오스크 기구와 4구역 수거함 외관. 제어 핀·각도는 위 표의 코드 설정을 기준으로 합니다.*
 
-### 2. 3단계 초음파 적재율 필터 파이프라인 ([bin_filter.c](bin_filter.c))
+## 분류 순서와 상태
 
-- **1단계 - 투입 블랭킹 (Drop Blanking)**: 투입 직후 2.0초간 계측을 일시 차단하여 쓰레기 낙하 잔류물 및 공중 통과로 인한 센서 왜곡 원천 배제.
-- **2단계 - 이상치 배제 평균 (Outlier Rejection)**: 5-샘플 링버퍼 삽입 정렬 후 중앙값(Median) 기준 $\pm 5\text{cm}$ 초과 이상치를 제외한 산술 평균 산출.
-- **3단계 - 히스테리시스 데드밴드 (Deadband)**: 변화량이 5% 이상 누적될 때만 적재율을 갱신하여 센서 미세 지터에 의한 플리커링 제거.
-- **연산 최적화**: Cortex-M4 단정밀도 하드웨어 FPU(`-mfpu=fpv4-sp-d16 -mfloat-abi=hard`)를 활용해 모든 필터링 연산을 단일 사이클로 고속 처리.
+[recycle.c](recycle.c)는 품목에 맞춰 하단 두 축의 목표를 설정한 뒤, 두 축의 소프트웨어 램프가 끝나면 상단을 구동합니다.
 
-### 3. 소프트웨어 각속도 램프 & 돌입 전류 제어 ([servo.c](servo.c))
+- 구동 속도: 120°/s
+- 닫힘 보류: 개방 명령 처리 후 2초가 지난 뒤 CLOSE 요청 반영
+- 자동 복귀: 개방 명령 처리 후 10초가 지나면 CLOSE가 없어도 중립 복귀 요청
+- 닫힘 처리: 상단·하단의 중립 이동을 함께 요청
+- 초기화: 기본 각도 설정 명령 사이에 busy-wait 지연 사용
 
-- 기성 RC 서보의 급격한 스텝 이동 시 발생하는 기구부 파손 및 피크 돌입 전류(Inrush Current)를 방지하기 위해 **120 deg/s 소프트웨어 램프 구동** 알고리즘 적용.
+`Servo_Is_Moving()`은 소프트웨어의 이동 진행 상태입니다. 실제 위치 센서는 없으며, `OPEN` 상태와 타이머 기준은 개방 명령 처리 시 설정됩니다. 따라서 `$DOOR_STATE`는 기구 도착 완료나 물체 낙하 확인을 뜻하지 않습니다. 타이머 조건은 Super Loop에서 확인하므로 폴링 대기만큼 늦게 처리될 수 있습니다.
 
-### 4. 이중 Failsafe 및 통신/디버그 분리 ([main.c](main.c), [isr.c](isr.c))
+## 적재율 처리
 
-- **자동 폐쇄 Failsafe**: Jetson 통신 단절이나 오탐으로 `$DOOR_CLOSE`가 누락되더라도 10초 경과 시 강제 폐쇄(`DOOR_MAX_OPEN_MS = 10000`). 반대로 조기 닫힘 방지를 위한 2초 최소 개방(`DOOR_MIN_OPEN_MS = 2000`) 보장.
-- **초음파 센서 무한 루프 방지**: Echo 신호 미수신 시 10ms 타임아웃으로 Super Loop 락업(Lock-up) 방지.
-- **채널 격리**: Jetson 제어 프로토콜(USART2)과 디버그 로그(USART1, `Dbg_Log`)를 물리적으로 분리하여 제어 패킷 오염 방지.
+[bin_filter.c](bin_filter.c)의 필터는 힙 할당 없이 수거함별 정적 상태를 사용합니다.
 
----
+| 순서 | 처리 |
+| --- | --- |
+| 1 | 해당 품목의 개방 명령 처리 후 2초 블랭킹 |
+| 2 | 최근 5개 거리 샘플의 중앙값에서 ±5cm를 벗어난 값을 제외하고 평균 |
+| 3 | 이전 적재율과 5%p 이상 차이가 날 때 갱신. 첫 유효 샘플은 바로 반영 |
 
-## 🔌 핀아웃 및 페리페럴 사양
+메인 설정은 빈 통 38cm·가득 찬 통 8cm이며, 0~100%로 환산합니다. `$BIN` 보고는 약 2초 간격으로 계측·전송하므로 5개 샘플은 5개 루프 반복을 의미하지 않습니다.
 
-| 페리페럴     | 핀 번호                          | 설정 / 기능                                   | 비고                                       |
-| :----------- | :------------------------------- | :-------------------------------------------- | :----------------------------------------- |
-| **TIM3 CH1** | `PC6`                            | 50Hz PWM (0.5~2.5ms), TOP 투입구 도어         | 30°(종이·캔) / 90°(닫힘) / 150°(페트·비닐) |
-| **TIM3 CH2** | `PC7`                            | 50Hz PWM (0.5~2.5ms), PET / VINYL 하단 분류판 | 130°(기본 PET) / 30°(비닐)                 |
-| **TIM3 CH3** | `PC8`                            | 50Hz PWM (0.5~2.5ms), PAPER / CAN 하단 분류판 | 150°(기본 종이) / 50°(캔)                  |
-| **TIM4**     | 내부                             | 1μs 단위 공용 타이머                          | 4채널 초음파 에코 펄스 폭 측정             |
-| **GPIO**     | `PC0`~`PC3` / `PC4`, `PB0`~`PB2` | Trig (Out) / Echo (In) 4쌍                    | 수거함 4구역 (종이, 캔, 페트, 비닐)        |
-| **USART2**   | `PA2`(TX), `PA3`(RX)             | 115200bps 8N1, RX 인터럽트 활성화             | Jetson 통신 프로토콜 전용                  |
-| **USART1**   | `PA9`(TX), `PA10`(RX)            | 115200bps 8N1                                 | 펌웨어 디버그 콘솔 (`Dbg_Log`)             |
+Echo 상승 대기는 10ms, HIGH 유지 대기는 30ms에서 timeout을 반환합니다. 이 대기 동안 메인 루프의 서보 갱신·명령 처리가 지연될 수 있습니다.
 
----
+## UART와 디버그
 
-## 📡 UART ASCII 프로토콜 규격
+| 수신 명령 | 동작 |
+| --- | --- |
+| `$DOOR_OPEN:PET` | 지정 품목 분류·개방 요청. PAPER/CAN/PET/VINYL 지원 |
+| `$DOOR_CLOSE` | 최소 개방 시간을 적용한 닫힘 요청 |
+| `$BIN_RESET` 또는 `reset` | 필터 상태를 0%로 초기화 |
+| `1 90 60` | 서보 1번을 논리 90°로 60°/s 이동 |
 
-| 구분                              | 메시지 포맷                  | 설명                                                |
-| :-------------------------------- | :--------------------------- | :-------------------------------------------------- |
-| **RX (Jetson $\rightarrow$ MCU)** | `$DOOR_OPEN:<TYPE>`          | `PAPER`, `CAN`, `PET`, `VINYL` 분류 경로 개방       |
-|                                   | `$DOOR_CLOSE`                | 물체 투입 완료 감지 시 복귀 (최소 2초 유지 후 반영) |
-|                                   | `$BIN_RESET`                 | 4개 수거함 적재율 필터 및 통계 0% 초기화            |
-|                                   | `<servo> <angle> [spd]`      | 엔지니어링 서보 수동 테스트 (예: `1 90 60`)         |
-| **TX (MCU $\rightarrow$ Jetson)** | `$DOOR_STATE:<OPEN\|CLOSED>` | 도어 개폐 상태 변경 시 즉시 전송                    |
-|                                   | `$BIN:<P>/<C>/<T>/<V>`       | 4채널 필터링 적재율(%) 2초 주기 전송                |
+상태 변경 시 `$DOOR_STATE:OPEN` 또는 `CLOSED`, 약 2초마다 `$BIN:P/C/T/V`를 전송합니다. 표준 출력의 줄 끝은 CRLF입니다. USART2에는 일반 진단 문자열도 출력되며 Jetson은 인식 가능한 `$` 헤더를 선별합니다.
 
----
+[isr.c](isr.c)는 SR→DR 읽기 후 바이트를 처리합니다. 단일 라인 버퍼가 처리 대기 중이면 뒤따르는 바이트를 버립니다. 큐·재전송·명령 ACK는 없습니다.
 
-## 🛠️ 빌드, 플래시 및 테스트 (Build & Flash)
+## 빌드와 플래시
 
-### 1. ARM GNU 툴체인 경로 설정
-
-[`Makefile`](Makefile)의 `TOOL_DIR` 변수를 설치된 ARM GCC 경로로 지정합니다:
+[Makefile](Makefile)의 툴체인 경로와 GCC 라이브러리 버전을 설치 환경에 맞춥니다.
 
 ```makefile
 TOOL_DIR = C:\arm-gnu-toolchain-15.2.rel1-mingw-w64-i686-arm-none-eabi
+VERSION = 15.2.1
 ```
 
-### 2. 빌드 및 ST-Link 플래시
+주요 옵션은 Cortex-M4, `fpv4-sp-d16`, hard-float ABI, GNU99입니다.
 
-```bash
-# 1. 펌웨어 빌드 (ELF 및 순수 바이너리 rom_0x08000000.bin 생성)
+```powershell
+cd mcu_firmware
 make
-
-# 2. ST-Link(SWD)를 통한 타깃 플래시 라이팅 및 자동 리셋
 make run
-
-# 3. 빌드 산출물 초기화
-make clean
 ```
 
-### 3. 시리얼 터미널 수동 제어 테스트
+`make`는 `rom_0x08000000.elf/.bin` 등을 생성합니다. `make run`은 STM32CubeProgrammer CLI와 ST-Link/SWD를 사용해 플래시·리셋합니다. 현재 Makefile은 Windows 툴체인 경로를 기준으로 작성되어 있습니다.
 
-USART2(PA2/PA3, 115200bps) 연결 후 PC 시리얼 모니터에서 명령을 전송하여 하드웨어를 직접 점검할 수 있습니다:
+플래시 후 시리얼 터미널에서 품목별 OPEN·CLOSE·수동 각도 명령을 보내 기구와 상태 출력을 대조합니다. 구문 검사·빌드 성공만으로 실제 전원·센서·모터 동작을 확인한 것은 아닙니다.
 
-- `$DOOR_OPEN:PET`: PET 분류 시퀀스 구동 (하단 모터 도착 후 상단 개방)
-- `$DOOR_CLOSE`: 투입 완료 닫힘 요청 (최소 2초 보장 후 닫힘)
-- `1 90 60`: 1번 서보(TOP) 90도 위치로 60°/s 속도 램프 이동
-- `reset`: 4개 수거함 초음파 필터 적재율 0% 수동 초기화
+## 코드 안내
+
+[main.c](main.c) Super Loop · [recycle.c](recycle.c) 분류 제어 · [servo.c](servo.c) 각도 램프 · [bin_filter.c](bin_filter.c) 적재율 · [uart.c](uart.c) UART · [crt0.s](crt0.s) 시작 코드
+
+[제어·센서 설계 설명](../docs/troubleshooting.md) · [전체 구동 순서](../docs/getting-started.md)

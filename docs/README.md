@@ -1,67 +1,27 @@
-# 📚 Smart Recycling Edge AI — Documentation Center
+# 기술 문서
 
-본 디렉터리는 **Smart Recycling Edge AI** 프로젝트의 시스템 아키텍처 설계, 이종 플랫폼 간 통신 규격, 하드웨어·소프트웨어 트러블슈팅 및 최종 프로젝트 보고서를 종합적으로 관리하는 문서 허브입니다.
+[프로젝트 소개](../README.md)에서 시연과 개발 역할을 확인한 뒤, 관심 영역에 따라 아래 문서로 이어갈 수 있습니다.
 
----
+| 확인할 내용 | 문서 |
+| --- | --- |
+| 장치별 책임, 스레드·인터럽트, 상태 전이 | [시스템 아키텍처](architecture.md) |
+| 장치·모델 준비와 전체 구동 순서 | [실행 안내](getting-started.md) |
+| 실제 송수신 필드·메시지·오류 처리 | [통신 프로토콜](protocol-spec.md) |
+| 영상 전송, 분류 기구, 센서·시리얼 설계 | [설계와 트러블슈팅](troubleshooting.md) |
+| 데이터 분할, 모델 비교, 평가 결과 | [AI 학습과 평가](../ai_models/Readme.md) |
 
-<div align="center">
+## 모듈별 구현과 실행
 
-[![Final Report](https://img.shields.io/badge/PDF-최종_결과보고서_다운로드-blue?style=for-the-badge&logo=adobeacrobatreader&logoColor=white)](presentation/smart_recycling_final_report.pdf)
+[Jetson](../edge_jetson/README.md) · [STM32](../mcu_firmware/README.md) · [Qt](../pc_dashboard/README.md) · [서버](../server/README.md) · [Android](../mobile_app/README.md)
 
-</div>
+모듈 README는 해당 영역의 설정·빌드·실행을, 이 디렉터리는 여러 모듈에 걸친 설계와 연동을 설명합니다.
 
----
+## 발표·시연 자료
 
-## 📑 프로젝트 최종 보고서 (Final Report & Presentation)
+- [통합 시연 영상](https://github.com/user-attachments/assets/a7b54b54-8b72-4728-b04c-dced2dc5ca10)
+- [발표자료 PDF](presentation/smart_recycling_final_report.pdf): 발표 당시 기록입니다. 현재 구현 명세는 코드와 위 기술 문서를 기준으로 합니다.
+- [시연 GIF](assets/demo/demo_preview.gif) · [장치·화면 이미지](assets/images/)
 
-프로젝트 기획 배경, 하드웨어 기구 설계, 비전 AI 모델 벤치마크 및 시연 평가 결과를 총괄 정리한 공식 리포트입니다.
+현재 코드의 동작, 노트북에 저장된 평가 출력, 발표 당시 결과를 구분해 다룹니다. 설정된 FPS나 이론상 대역폭을 실제 장치의 측정 결과로 해석하지 않습니다.
 
-- 📄 [**스마트 리사이클링 엣지 AI 최종 결과보고서 (PDF)**](presentation/smart_recycling_final_report.pdf)
-  - **포함 내용**: 하드웨어 기구물 제작 공정, 8종 AI 모델 벤치마크, 2-Stage 검사 파이프라인 정밀도, 시스템 신뢰성 검증 지표
-
----
-
-## 🛠️ 핵심 엔지니어링 기술 문서 (Deep-Dive Reports)
-
-| 문서명                                                         | 주요 기술 스택         | 핵심 다루는 내용                                                                                                                                                                    |
-| :------------------------------------------------------------- | :--------------------- | :---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 📡 [**통합 통신 프로토콜 명세서**](protocol-spec.md)           | TCP, UART, REST, WS    | • 60 FPS 저지연 8B 바이너리 TCP 패킷 규격<br/>• Jetson ↔ STM32 ASCII UART 프로토콜<br/>• FastAPI 중앙 서버 1:1 WebSocket 및 REST API 규격                                           |
-| ⚡ [**60 FPS 스트리밍 최적화 보고서**](network-streaming.md)   | TCP, CUDA, TurboJPEG   | • SSH X11 포워딩 대역폭 병목(442 Mbps) 극복<br/>• Custom Binary TCP 스트림 설계로 대역폭 97.3% 절감<br/>• End-to-End 레이턴시 14.1 ms 초저지연 달성 과정                            |
-| 🛠️ [**임베디드 & 엣지 트러블슈팅 보고서**](troubleshooting.md) | Bare-Metal C, Linux OS | • 서보 3축 동시 기동 돌입전류(>1.5A) BOR 전압 급락 방지<br/>• 초음파 센서 비동기 타임아웃 단축 (블로킹 85% 감축)<br/>• 리눅스 DTR 리셋 방어, UART ORE 락업 및 udev 포트 권한 영구화 |
-
----
-
-## 🎬 시스템 시연 및 UI 갤러리 (Assets Gallery)
-
-### 1. 실시간 3채널 멀티캠 데모 (`assets/demo/`)
-
-<div align="center">
-  <img src="assets/demo/demo_preview.gif" width="600" alt="Demo Preview"/>
-  <p><em>[NVIDIA Jetson 엣지 디바이스 ➔ 바이너리 TCP 패킷 전송 ➔ Qt 키오스크 렌더링 파이프라인]</em></p>
-</div>
-
-### 2. 하드웨어 및 키오스크 UI (`assets/images/`)
-
-|                      🤖 키오스크 기구 & 초음파 센서                      |                          🖥️ AI 정상 검출 & 도어 개방                           |                              ⚠️ 라벨/오염 검사 경고 오버레이                               |
-| :----------------------------------------------------------------------: | :----------------------------------------------------------------------------: | :----------------------------------------------------------------------------------------: |
-| <img src="assets/images/hardware_kiosk.jpg" width="260" alt="Hardware"/> | <img src="assets/images/kiosk_detect_pass.png" width="260" alt="Detect Pass"/> | <img src="assets/images/kiosk_inspect_label_warning.png" width="260" alt="Label Warning"/> |
-|                       **4구역 적재함 & 서보 3축**                        |                          **녹색 BBox 및 투입구 개방**                          |                               **라벨 미제거 1차 품질 경고**                                |
-
-### 3. 모바일 앱 주요 화면 플로우 (`assets/images/`)
-
-|                             📱 간편 로그인                             |                           📱 메인 홈 화면                            |                           📱 1초 QR 바인딩                            |                                 📱 실시간 배출 정산                                  |
-| :--------------------------------------------------------------------: | :------------------------------------------------------------------: | :-------------------------------------------------------------------: | :----------------------------------------------------------------------------------: |
-| <img src="assets/images/mobile_01_login.png" width="200" alt="Login"/> | <img src="assets/images/mobile_02_home.png" width="200" alt="Home"/> | <img src="assets/images/mobile_03_qr_scan.png" width="200" alt="QR"/> | <img src="assets/images/mobile_05_recycle_complete.png" width="200" alt="Complete"/> |
-|                       **휴대폰 번호 간편 인증**                        |                      **탄소 절감 & 식수 지표**                       |                        **CameraX 초고속 스캔**                        |                               **WebSocket 즉시 통보**                                |
-
----
-
-## 🔗 서브시스템별 세부 README
-
-각 서브시스템의 빌드 및 개발 환경 설정은 아래 개별 문서에서 확인할 수 있습니다.
-
-- [🧠 `edge_jetson/README.md`](../edge_jetson/README.md) : NVIDIA Jetson Orin Nano TensorRT 10 파이프라인
-- [⚡ `mcu_firmware/README.md`](../mcu_firmware/README.md) : STM32F411xE 베어메탈 제어 및 센서 필터링
-- [🖥️ `pc_dashboard/README.md`](../pc_dashboard/README.md) : Qt 5.15 키오스크 관제 GUI 애플리케이션
-- [⚙️ `server/README.md`](../server/README.md) : FastAPI 비동기 백엔드 및 SQLite WAL 데이터베이스
-- [📱 `mobile_app/README.md`](../mobile_app/README.md) : Android (Jetpack Compose + MVI) 사용자 앱
+저장소 유지관리: [자격 증명 관리와 Secret Scan](credential-security.md)
